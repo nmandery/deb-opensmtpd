@@ -1,0 +1,58 @@
+Description: Don't use hyphens as minus signs
+ Using hyphens as minus signs break cut and paste for those in UTF-8 locales.
+Author: Ryan Kavanagh <rak@debian.org>
+Origin: vendor
+Forwarded: no
+---
+This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
+Index: opensmtpd/smtpd/newaliases.8
+===================================================================
+--- opensmtpd.orig/smtpd/newaliases.8	2013-05-21 16:58:29.293343722 -0400
++++ opensmtpd/smtpd/newaliases.8	2013-05-21 17:27:50.650357978 -0400
+@@ -48,7 +48,7 @@
+ The preferred way of rebuilding the database is with
+ .Xr makemap 8 :
+ .Bd -literal -offset indent
+-# makemap -t aliases /etc/mail/aliases
++# makemap \-t aliases /etc/mail/aliases
+ .Ed
+ .Sh FILES
+ .Bl -tag -width "/etc/mail/aliasesXXX" -compact
+Index: opensmtpd/smtpd/smtpd.conf.5
+===================================================================
+--- opensmtpd.orig/smtpd/smtpd.conf.5	2013-05-21 16:58:57.714070059 -0400
++++ opensmtpd/smtpd/smtpd.conf.5	2013-05-21 17:27:34.549946507 -0400
+@@ -85,7 +85,7 @@
+ %{rcpt.domain[0]}	expands to "e"
+ %{rcpt.domain[1]}	expands to "x"
+ %{rcpt.domain[8:]}	expands to "org"
+-%{rcpt.domain[-3:]}	expands to "org"
++%{rcpt.domain[\-3:]}	expands to "org"
+ %{rcpt.domain[0:6]}	expands to "example"
+ %{rcpt.domain[0:-4]} 	expands to "example"
+ .Ed
+@@ -641,9 +641,9 @@
+ Mail with a local destination should be sent to an external mda.
+ First, the RSA certificate is created:
+ .Bd -literal -offset indent
+-# openssl genrsa -out /etc/mail/certs/mail.example.com.key 4096
+-# openssl req -new -x509 -key /etc/mail/certs/mail.example.com.key \e
+-	-out /etc/mail/certs/mail.example.com.crt -days 365
++# openssl genrsa \-out /etc/mail/certs/mail.example.com.key 4096
++# openssl req \-new \-x509 \-key /etc/mail/certs/mail.example.com.key \e
++	\-out /etc/mail/certs/mail.example.com.crt \-days 365
+ # chmod 600 /etc/mail/certs/mail.example.com.*
+ .Ed
+ .Pp
+@@ -654,9 +654,9 @@
+ listen on lo0
+ listen on egress tls certificate mail.example.com auth
+ table aliases db:/etc/mail/aliases.db
+-accept for local alias <aliases> deliver to mda "/path/to/mda -f -"
++accept for local alias <aliases> deliver to mda "/path/to/mda \-f \-"
+ accept from any for domain example.org \e
+-	deliver to mda "/path/to/mda -f -"
++	deliver to mda "/path/to/mda \-f \-"
+ accept for any relay
+ .Ed
+ .Sh SEE ALSO

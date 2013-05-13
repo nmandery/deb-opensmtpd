@@ -1,0 +1,27 @@
+Description: Use softlinks instead of hardlinks
+Author: Ryan Kavanagh <rak@debian.org>
+Origin: vendor
+Forwarded: no
+---
+This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
+Index: opensmtpd/smtpd/Makefile.am
+===================================================================
+--- opensmtpd.orig/smtpd/Makefile.am	2013-05-21 18:34:59.000000000 -0400
++++ opensmtpd/smtpd/Makefile.am	2013-05-21 19:05:10.679609135 -0400
+@@ -168,13 +168,13 @@
+ 		echo "$(DESTDIR)$(sysconfdir)/smtpd.conf already exists, install will not overwrite"; \
+ 	fi
+ 
+-	ln -f $(DESTDIR)$(sbindir)/smtpctl$(EXEEXT)				\
++	ln -srf $(DESTDIR)$(sbindir)/smtpctl$(EXEEXT)				\
+ 		$(DESTDIR)$(bindir)/mailq$(EXEEXT);
+ 
+-	ln -f $(DESTDIR)$(pkglibexecdir)/makemap$(EXEEXT)			\
++	ln -srf $(DESTDIR)$(pkglibexecdir)/makemap$(EXEEXT)			\
+ 		$(DESTDIR)$(bindir)/newaliases$(EXEEXT);
+ 
+-	ln -f $(DESTDIR)$(pkglibexecdir)/makemap$(EXEEXT)			\
++	ln -srf $(DESTDIR)$(pkglibexecdir)/makemap$(EXEEXT)			\
+ 		$(DESTDIR)$(sbindir)/makemap$(EXEEXT);
+ 
+ 	$(INSTALL) -m 644 aliases.5.out		$(DESTDIR)$(mandir)/$(mansubdir)5/aliases.5

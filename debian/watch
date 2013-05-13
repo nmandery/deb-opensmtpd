@@ -1,0 +1,3 @@
+version=3
+
+http://www.opensmtpd.org/archives/opensmtpd-([^latest][^201][0-9a-z.]+).tar.gz

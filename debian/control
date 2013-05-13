@@ -1,0 +1,34 @@
+Source: opensmtpd
+Section: mail
+Priority: extra
+Maintainer: Ryan Kavanagh <rak@debian.org>
+Build-Depends: debhelper (>= 9.0.0)
+ , automake
+ , autoconf
+ , bison
+ , libdb-dev
+ , libevent-dev
+ , libpam0g-dev
+ , libtool
+ , libssl-dev
+Standards-Version: 3.9.4
+Homepage: http://www.opensmtpd.org/
+Vcs-Git: git://git.debian.org/collab-maint/opensmtpd.git
+Vcs-Browser: http://git.debian.org/?p=collab-maint/opensmtpd.git;a=summary
+
+Package: opensmtpd
+Architecture: any
+Provides: mail-transport-agent
+Conflicts: mail-transport-agent
+Replaces: mail-transport-agent
+Depends: ${shlibs:Depends}, ${misc:Depends}
+ , adduser
+Description: secure, reliable, lean, and easy-to configure SMTP server
+ The OpenSMTPD server seeks to be
+  * as secure as possible, and uses privilege separation to mitigate
+    possible security bugs
+  * as reliable as possible: any accepted email must not be lost
+  * lean: it covers typical usage cases instead of every obscure one
+  * easy to configure, with a configuration syntax reminiscent of the OpenBSD
+    Packet Filter's (PF)
+  * fast and efficient: it can handle large queues with reasonable performance

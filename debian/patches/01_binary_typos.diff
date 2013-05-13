@@ -1,0 +1,19 @@
+Description: Fix typo in binary
+Author: Ryan Kavanagh <rak@debian.org>
+Origin: vendor
+Forwarded: no
+---
+This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
+Index: opensmtpd/smtpd/scheduler.c
+===================================================================
+--- opensmtpd.orig/smtpd/scheduler.c	2013-05-21 16:58:57.714070059 -0400
++++ opensmtpd/smtpd/scheduler.c	2013-05-21 17:21:12.132173218 -0400
+@@ -101,7 +101,7 @@
+ 		m_get_msgid(&m, &msgid);
+ 		m_end(&m);
+ 		log_trace(TRACE_SCHEDULER,
+-		    "scheduler: commiting msg:%08" PRIx32, msgid);
++		    "scheduler: committing msg:%08" PRIx32, msgid);
+ 		n = backend->commit(msgid);
+ 		stat_decrement("scheduler.envelope.incoming", n);
+ 		stat_increment("scheduler.envelope", n);

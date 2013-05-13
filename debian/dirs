@@ -1,0 +1,2 @@
+var/spool/smtpd
+var/spool/smtpd/offline
