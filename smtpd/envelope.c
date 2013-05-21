@@ -19,9 +19,8 @@
 #include "includes.h"
 
 #include <sys/types.h>
-#include "sys-queue.h"
-#include "sys-tree.h"
-#include <sys/param.h>
+#include <sys/queue.h>
+#include <sys/tree.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 
@@ -33,7 +32,7 @@
 #include <errno.h>
 #include <event.h>
 #include <fcntl.h>
-#include "imsg.h"
+#include <imsg.h>
 #include <inttypes.h>
 #include <libgen.h>
 #include <pwd.h>

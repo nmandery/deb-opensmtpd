@@ -21,16 +21,15 @@
 
 #include <sys/types.h>
 #include <sys/wait.h>
-#include "sys-queue.h"
-#include "sys-tree.h"
-#include <sys/param.h>
+#include <sys/queue.h>
+#include <sys/tree.h>
 #include <sys/socket.h>
 
 #include <err.h>
 #include <errno.h>
 #include <event.h>
 #include <grp.h> /* needed for setgroups */
-#include "imsg.h"
+#include <imsg.h>
 #include <pwd.h>
 #include <signal.h>
 #include <stdio.h>

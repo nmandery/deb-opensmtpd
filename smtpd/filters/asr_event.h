@@ -1,4 +1,4 @@
-/*	$OpenBSD: res_send.c,v 1.3 2013/04/30 12:02:39 eric Exp $	*/
+/*	$OpenBSD: asr.h,v 1.5 2011/07/13 14:52:21 eric Exp $	*/
 /*
  * Copyright (c) 2012 Eric Faurot <eric@openbsd.org>
  *
@@ -18,40 +18,17 @@
 #include <sys/types.h>
 #include <netinet/in.h>
 
-#include <errno.h>
-#include <resolv.h>
-#include <string.h>
+#include <event.h>
 
-#include "asr.h"
+struct async;
+struct async_res;
 
-int
-res_send(const u_char *buf, int buflen, u_char *ans, int anslen)
-{
-	struct async	*as;
-	struct async_res ar;
-	size_t		 len;
+struct async_event {
+	struct async	*async;
+	struct event	 ev;
+	void		(*callback)(int, struct async_res *, void *);
+	void		*arg;
+};
 
-	if (ans == NULL || anslen <= 0) {
-		errno = EINVAL;
-		return (-1);
-	}
-
-	as = res_send_async(buf, buflen, NULL);
-	if (as == NULL)
-		return (-1); /* errno set */
-
-	async_run_sync(as, &ar);
-
-	if (ar.ar_errno) {
-		errno = ar.ar_errno;
-		return (-1);
-	}
-
-	len = anslen;
-	if (ar.ar_datalen < len)
-		len = ar.ar_datalen;
-	memmove(ans, ar.ar_data, len);
-	free(ar.ar_data);
-
-	return (ar.ar_datalen);
-}
+struct async_event * async_run_event(struct async *,
+	void (*)(int, struct async_res *, void *), void *);
