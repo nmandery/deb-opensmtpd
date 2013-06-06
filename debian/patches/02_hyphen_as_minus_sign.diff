@@ -20,8 +20,8 @@ Index: opensmtpd/smtpd/newaliases.8
  .Bl -tag -width "/etc/mail/aliasesXXX" -compact
 Index: opensmtpd/smtpd/smtpd.conf.5
 ===================================================================
---- opensmtpd.orig/smtpd/smtpd.conf.5	2013-05-21 16:58:57.714070059 -0400
-+++ opensmtpd/smtpd/smtpd.conf.5	2013-05-21 17:27:34.549946507 -0400
+--- opensmtpd.orig/smtpd/smtpd.conf.5	2013-06-05 23:51:38.076116354 -0400
++++ opensmtpd/smtpd/smtpd.conf.5	2013-06-05 23:51:38.072116252 -0400
 @@ -85,7 +85,7 @@
  %{rcpt.domain[0]}	expands to "e"
  %{rcpt.domain[1]}	expands to "x"
@@ -29,9 +29,9 @@ Index: opensmtpd/smtpd/smtpd.conf.5
 -%{rcpt.domain[-3:]}	expands to "org"
 +%{rcpt.domain[\-3:]}	expands to "org"
  %{rcpt.domain[0:6]}	expands to "example"
- %{rcpt.domain[0:-4]} 	expands to "example"
+ %{rcpt.domain[0:-4]}	expands to "example"
  .Ed
-@@ -641,9 +641,9 @@
+@@ -642,9 +642,9 @@
  Mail with a local destination should be sent to an external mda.
  First, the RSA certificate is created:
  .Bd -literal -offset indent
@@ -44,7 +44,7 @@ Index: opensmtpd/smtpd/smtpd.conf.5
  # chmod 600 /etc/mail/certs/mail.example.com.*
  .Ed
  .Pp
-@@ -654,9 +654,9 @@
+@@ -655,9 +655,9 @@
  listen on lo0
  listen on egress tls certificate mail.example.com auth
  table aliases db:/etc/mail/aliases.db
