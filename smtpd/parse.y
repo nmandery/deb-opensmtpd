@@ -1,4 +1,4 @@
-/*	$OpenBSD: parse.y,v 1.116 2013/03/06 21:42:40 sthen Exp $	*/
+/*	$OpenBSD$	*/
 
 /*
  * Copyright (c) 2008 Gilles Chehade <gilles@poolp.org>
@@ -484,7 +484,6 @@ table		: TABLE STRING STRING	{
 					;
 				if (*p == ':') {
 					*p = '\0';
-					backend = $3;
 					config  = p+1;
 				}
 			}
