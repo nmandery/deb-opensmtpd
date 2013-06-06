@@ -1,7 +1,8 @@
 Description: Fix typo in binary
 Author: Ryan Kavanagh <rak@debian.org>
 Origin: vendor
-Forwarded: no
+Forwarded: yes
+Applied-Upstream: https://github.com/poolpOrg/OpenSMTPD/commit/e39350501f7cbf5e393f73db800d05d5573e6204
 ---
 This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
 Index: opensmtpd/smtpd/scheduler.c
