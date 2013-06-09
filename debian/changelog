@@ -1,4 +1,4 @@
-opensmtpd (5.3.2p1-1) UNRELEASED; urgency=low
+opensmtpd (5.3.3p1-1) UNRELEASED; urgency=low
 
   * Initial release (Closes: #706985)
 
