@@ -1,0 +1,25 @@
+Description: Don't install mailq
+ Upstream only accepts the "mailq" shortcut to "smtpctl show" for historical
+ reasons; the proper way is to use "smtpctl show".
+ .
+ Administrators who insist on having mailq can create a shell alias, or a
+ symlink from mailq to smtpctl.
+Author: Ryan Kavanagh <rak@debian.org>
+Origin: vendor
+Forwarded: not-needed
+---
+This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
+Index: opensmtpd/smtpd/Makefile.am
+===================================================================
+--- opensmtpd.orig/smtpd/Makefile.am	2013-06-09 20:12:52.217708598 -0400
++++ opensmtpd/smtpd/Makefile.am	2013-06-09 20:14:01.743485670 -0400
+@@ -168,9 +168,6 @@
+ 		echo "$(DESTDIR)$(sysconfdir)/smtpd.conf already exists, install will not overwrite"; \
+ 	fi
+ 
+-	ln -srf $(DESTDIR)$(sbindir)/smtpctl$(EXEEXT)				\
+-		$(DESTDIR)$(bindir)/mailq$(EXEEXT);
+-
+ 	ln -srf $(DESTDIR)$(pkglibexecdir)/makemap$(EXEEXT)			\
+ 		$(DESTDIR)$(bindir)/newaliases$(EXEEXT);
+ 
