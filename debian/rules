@@ -10,9 +10,9 @@ override_dh_auto_configure:
 	    --with-man=man \
 	    --with-maildir=/var/mail \
 	    --with-privsep-path=/var/empty \
-	    --with-privsep-user=smtpd \
-	    --with-queue-user=smtpq \
-	    --with-filter-user=smtpf
+	    --with-privsep-user=opensmtpd \
+	    --with-queue-user=opensmtpq \
+	    --with-filter-user=opensmtpf
 
 override_dh_auto_clean:
 	dh_auto_clean

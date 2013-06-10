@@ -16,23 +16,23 @@ set -e
 
 case "$1" in
     configure)
-        for name in smtpd smtpq smtpf; do
+        for name in opensmtpd opensmtpq opensmtpf; do
             id -g ${name} > /dev/null 2>&1 || addgroup --system ${name}
         done
 
         # Based on postfix.postinst:
-        id smtpd > /dev/null 2>&1 || \
+        id opensmtpd > /dev/null 2>&1 || \
                 adduser --system --home /var/empty --no-create-home \
                     --disabled-password --gecos "OpenSMTD Daemon" \
-                    --ingroup smtpd smtpd
-        id smtpq > /dev/null 2>&1 || \
+                    --ingroup opensmtpd opensmtpd
+        id opensmtpq > /dev/null 2>&1 || \
                 adduser --system --home /var/empty --no-create-home \
                     --disabled-password --gecos "OpenSMTD queue user" \
-                    --ingroup smtpq smtpq
-        id smtpf > /dev/null 2>&1 || \
+                    --ingroup opensmtpq opensmtpq
+        id opensmtpf > /dev/null 2>&1 || \
                 adduser --system --home /var/empty --no-create-home \
                     --disabled-password --gecos "OpenSMTD filter user" \
-                    --ingroup smtpf smtpf
+                    --ingroup opensmtpf opensmtpf
     ;;
 
     abort-upgrade|abort-remove|abort-deconfigure)
