@@ -2,3 +2,4 @@
 02_hyphen_as_minus_sign.diff
 03_no_hardlinks.diff
 04_no_mailq.diff
+05_no_smtpscript.diff

@@ -1,0 +1,18 @@
+Description: Don't build and install smtpscript
+ smtpscript is a utility used for regression testing and doesn't need to be
+ installed in a package, as confirmed with upstream.
+Author: Ryan Kavanagh <rak@debian.org>
+Origin: vendor
+Forwarded: not-needed
+---
+This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
+Index: opensmtpd/regress/bin/Makefile.am
+===================================================================
+--- opensmtpd.orig/regress/bin/Makefile.am	2013-06-06 09:28:22.387357295 -0400
++++ opensmtpd/regress/bin/Makefile.am	2013-06-10 08:01:10.743967128 -0400
+@@ -1,4 +1,4 @@
+-bin_PROGRAMS=		smtpscript
++bin_PROGRAMS=
+ 
+ smtpscript_SOURCES=	smtpscript.c iobuf.c parse.y ssl.c
+ 
