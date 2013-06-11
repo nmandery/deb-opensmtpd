@@ -1,0 +1,2 @@
+opensmtpd: non-standard-dir-perm var/spool/smtpd/ 0711 != 0755
+opensmtpd: non-standard-dir-perm var/spool/smtpd/offline/ 1777 != 0755
