@@ -1,0 +1,29 @@
+#!/bin/sh
+
+set -e
+
+case "$1" in
+    purge)
+	rm -rf /var/spool/opensmtpd
+        for name in opensmtpd opensmtpq opensmtpf; do
+            # By debian Policy §6.5, we may only rely on essential packages and
+            # must fail gracefully if they are unavailable.
+            # Use userdel/groupdel from passwd instead of deluser/delgroup from
+            # the adduser package. This is because adduser depends on passwd,
+            # but is of lesser priority.
+            # Note that at the time of this writing, neither passwd nor adduser
+            # are essential packages.
+            userdel  ${name} >/dev/null 2>&1 || true;
+            groupdel ${name} >/dev/null 2>&1 || true;
+        done
+	;;
+
+    remove|failed-upgrade|abort-install|abort-upgrade|disappear)
+	;;
+
+    *)
+	echo "postrm called with unknown argument \`$1'" >&2
+	exit 1
+	;;
+esac
+#DEBHELPER#
