@@ -17,3 +17,10 @@ override_dh_auto_configure:
 override_dh_auto_clean:
 	dh_auto_clean
 	find . -name Makefile.in -exec rm -f {} \;
+
+override_dh_fixperms:
+	dh_fixperms
+	chmod 711 debian/opensmtpd/var/spool/smtpd
+	# OpenSMTPD needs the offline mail queue (for messages sent locally,
+	# e.g., via /usr/sbin/sendmail) to be 1777
+	chmod 1777 debian/opensmtpd/var/spool/smtpd/offline
