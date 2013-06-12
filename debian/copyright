@@ -3,28 +3,29 @@ Upstream-Name: opensmtpd
 Source: http://www.opensmtpd.org/
 
 Files: *
-Copyright: Copyright (C) Gilles Chehade
-	   Copyright (C) Eric Faurot
-	   Copyright (C) Jacek Masiulaniec
-	   Copyright (C) Pierre-Yves Ritschard
-	   Copyright (C) Henning Brauer
-	   Copyright (C) Esben Norby
-	   Copyright (C) Markus Friedl
-	   Copyright (C) Daniel Hartmeier
-	   Copyright (C) Theo de Raadt
-	   Copyright (C) Claudio Jeker
-	   Copyright (C) Reyk Floeter
-	   Copyright (C) Janne Johansson
-	   Copyright (C) Alexander Schrijver
-	   Copyright (C) Marc Balmer
-	   Copyright (C) Ashish Shukla
-	   Copyright (C) Charles Longeau
+Copyright: Copyright (C) 2006, 2008-2013   Gilles Chehade <gilles@poolp.org>,<gilles@openbsd.org>
+           Copyright (C) 2011-2013 Eric Faurot <eric@faurot.net>,<eric@openbsd.org>
+           Copyright (C) 2008-2009 Jacek Masiulaniec <jacekm@dobremiasto.net>,<jacekm@openbsd.org>
+           Copyright (C) 2006, 2008        Pierre-Yves Ritschard <pyr@openbsd.org>
+           Copyright (C) 2002-2005 Henning Brauer <henning@openbsd.org>,<henning@bulabula.org>
+           Copyright (C) 2004-2005 Esben Norby <norby@openbsd.org>
+           Copyright (C) 2000-2001 Markus Friedl
+           Copyright (C) 2001      Daniel Hartmeier
+           Copyright (C) 2001      Theo de Raadt
+           Copyright (C) 2005-2007 Claudio Jeker <claudio@openbsd.org>
+           Copyright (C) 2007-2008 Reyk Floeter <reyk@vantronix.net>,<reyk@openbsd.org>
+           Copyright (C) 2008      Janne Johansson <jj@openbsd.org>
+           Copyright (C) 2008      Alexander Schrijver <aschrijver@openbsd.org>
+           Copyright (C) 2006-2007 Marc Balmer <mbalmer@openbsd.org>
+           Copyright (C) 2013      Ashish Shukla <ashish.is@lostca.se>
+           Copyright (C) 2012      Charles Longeau <chl@openbsd.org>
 License: ISC
 
 
 Files: debian/*
 Copyright: Copyright (C) 2013 Ryan Kavanagh <rak@debian.org>
 License: ISC
+
 
 Files: smtpd/ssl_privsep.c
 Copyright: Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
@@ -94,85 +95,30 @@ Copyright: Copyright (C) 2009-2012 Eric Faurot <eric@openbsd.org>
 License: ISC
 
 Files: contrib/lib/libc/asr/getrrsetbyname_async.c
-Copyright: Copyright (C) 2001 Jakob Schlyter. All rights reserved.
+Copyright: Copyright (C) 2001 Jakob Schlyter
 License: BSD-2-clause
- Redistribution and use in source and binary forms, with or without
- modification, are permitted provided that the following conditions
- are met:
- .
- 1. Redistributions of source code must retain the above copyright
-    notice, this list of conditions and the following disclaimer.
- .
- 2. Redistributions in binary form must reproduce the above copyright
-    notice, this list of conditions and the following disclaimer in the
-    documentation and/or other materials provided with the distribution.
- .
- THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR
- IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
- OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
- IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT,
- INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
- NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
- DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
- THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
- THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
 
 Files: contrib/libexec/mail.local/*
-Copyright: Copyright (C) The Regents of the University of California.
-	   Copyright (C) David Mazieres
-	   Copyright (C) Theo de Raadt
+Copyright: Copyright (C) 1990      The Regents of the University of California.
+	   Copyright (C) 1996-1998 David Mazieres <dm@lcs.mit.edu>
+	   Copyright (C) 1996-1998 Theo de Raadt <deraadt@theos.com>
 License: BSD-3-clause
- Redistribution and use in source and binary forms, with or without
- modification, are permitted provided that the following conditions
- are met:
- 1. Redistributions of source code must retain the above copyright
-    notice, this list of conditions and the following disclaimer.
- 2. Redistributions in binary form must reproduce the above copyright
-    notice, this list of conditions and the following disclaimer in the
-    documentation and/or other materials provided with the distribution.
- 3. Neither the name of the University nor the names of its contributors
-    may be used to endorse or promote products derived from this software
-    without specific prior written permission.
- .
- THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
- ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
- FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
- OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
- HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
- LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
- OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
- SUCH DAMAGE.
 
 
 Files: openbsd-compat/*
-Copyright: Copyright (C) Internet Software Consortium.
-	   Copyright (C) Todd C. Miller
-	   Copyright (C) Damien Miller
-	   Copyright (C) Henning Brauer
-	   Copyright (C) Pierre-Yves Ritschard
-	   Copyright (C) Reyk Floeter
-	   Copyright (C) Theo de Raadt
-	   Copyright (C) Ted Unangst
-	   Copyright (C) Charles Longeau
+Copyright: Copyright (C) 1996            Internet Software Consortium.
+	   Copyright (C) 1997-1998, 2000, 2002, 2004-2005,
+                         2008-2009       Todd C. Miller <Todd.Miller@courtesan.com>
+	   Copyright (C) 1999-2004       Damien Miller <djm@mindrot.org>
+	   Copyright (C) 2003-2004       Henning Brauer <henning@openbsd.org>
+	   Copyright (C) 2006-2007       Pierre-Yves Ritschard <pyr@openbsd.org>
+	   Copyright (C) 2006-2008       Reyk Floeter <reyk@openbsd.org>
+	   Copyright (C) 1996-1998, 2008 Theo de Raadt
+	   Copyright (C) 2004            Ted Unangst
+	   Copyright (C) 2012            Charles Longeau <chl@openbsd.org>
 Comment: Most of the OpenBSD compatibility layer is based on the work by
  Damien Miller for Portable OpenSSH.
 License: ISC
- Permission to use, copy, modify, and distribute this software for any
- purpose with or without fee is hereby granted, provided that the above
- copyright notice and this permission notice appear in all copies.
- .
- THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
- ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
- ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
- OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 Files: openbsd-compat/base64.c
 Copyright: Copyright (C) 1995 by International Business Machines, Inc.
@@ -202,12 +148,78 @@ License: ISC and permissive
  OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE, EVEN
  IF IBM IS APPRISED OF THE POSSIBILITY OF SUCH DAMAGES.
 
-Files: openbsd-compat/??????
-Copyright: Copyright (C) Ben Lindstrom
-	   Copyright (C) Damien Miller
-	   Copyright (C) Marc Espie
-	   Copyright (C) Tim Rice
-	   Copyright (C) Niels Provos
+Files: openbsd-compat/bsd-waitpid.*
+       openbsd-compat/fgetln.c
+       openbsd-compat/openbsd-compat.h
+       openbsd-compat/sys/tree.h
+Copyright: Copyright (C) 2000, 2003 Ben Lindstrom
+	   Copyright (C) 1999-2003  Damien Miller
+	   Copyright (C) 2001       Marc Espie
+	   Copyright (C) 2002       Tim Rice
+	   Copyright (C) 2002       Niels Provos <provos@citi.umich.edu>
+License: BSD-2-clause
+
+Files: openbsd-compat/daemon.c
+       openbsd-compat/fmt_scaled.c
+       openbsd-compat/getopt.c
+       openbsd-compat/setproctitle.c
+       openbsd-compat/strmode.c
+       openbsd-compat/strsep.c
+       openbsd-compat/sys/queue.h
+       openbsd-compat/vis.*
+Copyright: Copyright (C) 1983, 1987-1994 The Regents of the University of California.
+	   Copyright (C) 2001-2003       Ian F. Darwin
+	   Copyright (C) 1983, 1995-1997 Eric P. Allman
+	   Copyright (C) 2003            Damien Miller
+License: BSD-3-clause
+
+Files: openbsd-compat/fparseln.c
+Copyright: Copyright (C) 1997 Christos Zoulas
+License: BSD-4-clause
+
+Files: openbsd-compat/includes.h
+       openbsd-compat/log.h
+       openbsd-compat/setresguid.c
+       openbsd-compat/xmalloc.c
+Copyright: Copyright (c) 1995 Tatu Ylonen <ylo@cs.hut.fi>, Espoo, Finland
+License: permissive
+ All rights reserved
+ .
+ As far as I am concerned, the code I have written for this software
+ can be used freely for any purpose.  Any derived versions of this
+ software must be clearly marked as such, and if the derived work is
+ incompatible with the protocol description in the RFC file, it must be
+ called by a name other than "ssh" or "Secure Shell".
+
+
+Files: bootstrap
+Copyright: Copyright (c) 2002-2011 Sam Hocevar <sam@hocevar.net>
+License: permissive
+ This program is free software. It comes without any warranty, to
+ the extent permitted by applicable law. You can redistribute it
+ and/or modify it under the terms of the Do What The Fuck You Want
+ To Public License, Version 2, as published by Sam Hocevar. See
+ http://sam.zoy.org/wtfpl/COPYING for more details.
+
+
+Files: configure.ac
+Copyright: Copyright (C) 1999-2004 Damien Miller
+License: ISC
+
+
+License: ISC
+ Permission to use, copy, modify, and distribute this software for any
+ purpose with or without fee is hereby granted, provided that the above
+ copyright notice and this permission notice appear in all copies.
+ .
+ THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+ WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+ ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+
 License: BSD-2-clause
  Redistribution and use in source and binary forms, with or without
  modification, are permitted provided that the following conditions
@@ -229,11 +241,6 @@ License: BSD-2-clause
  (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
  THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-Files: openbsd-compat/?????
-Copyright: Copyright (C) The Regents of the University of California.
-	   Copyright (C) Ian F. Darwin
-	   Copyright (C) Eric P. Allman
-	   Copyright (C) Damien Miller
 License: BSD-3-clause
  Redistribution and use in source and binary forms, with or without
  modification, are permitted provided that the following conditions
@@ -259,8 +266,6 @@ License: BSD-3-clause
  OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  SUCH DAMAGE.
 
-Files: openbsd-compat/fparseln.c
-Copyright: Copyright (C) 1997 Christos Zoulas
 License: BSD-4-clause
  Redistribution and use in source and binary forms, with or without
  modification, are permitted provided that the following conditions
@@ -286,38 +291,3 @@ License: BSD-4-clause
  THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
  THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
-Files: openbsd-compat/includes.h openbsd-compat/log.h
-       openbsd-compat/setresguid.c openbsd-compat/xmalloc.c
-Copyright: Copyright (c) 1995 Tatu Ylonen <ylo@cs.hut.fi>, Espoo, Finland
-License: permissive
- All rights reserved
- .
- As far as I am concerned, the code I have written for this software
- can be used freely for any purpose.  Any derived versions of this
- software must be clearly marked as such, and if the derived work is
- incompatible with the protocol description in the RFC file, it must be
- called by a name other than "ssh" or "Secure Shell".
-
-
-Files: bootstrap
-Copyright: Copyright (c) 2002-2011 Sam Hocevar <sam@hocevar.net>
-License: permissive
- This program is free software. It comes without any warranty, to
- the extent permitted by applicable law. You can redistribute it
- and/or modify it under the terms of the Do What The Fuck You Want
- To Public License, Version 2, as published by Sam Hocevar. See
- http://sam.zoy.org/wtfpl/COPYING for more details.
-
-License: ISC
- Permission to use, copy, modify, and distribute this software for any
- purpose with or without fee is hereby granted, provided that the above
- copyright notice and this permission notice appear in all copies.
- .
- THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
- ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
- ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
- OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
