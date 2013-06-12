@@ -22,16 +22,19 @@ case "$1" in
 
         # Based on postfix.postinst:
         id opensmtpd > /dev/null 2>&1 || \
-                adduser --system --home /var/empty --no-create-home \
-                    --disabled-password --gecos "OpenSMTD Daemon" \
+                adduser --system --home /var/lib/opensmtpd/empty \
+                    --no-create-home --disabled-password \
+                    --gecos "OpenSMTD Daemon" \
                     --ingroup opensmtpd opensmtpd
         id opensmtpq > /dev/null 2>&1 || \
-                adduser --system --home /var/empty --no-create-home \
-                    --disabled-password --gecos "OpenSMTD queue user" \
+                adduser --system --home /var/lib/opensmtpd/empty \
+                    --no-create-home --disabled-password \
+                    --gecos "OpenSMTD queue user" \
                     --ingroup opensmtpq opensmtpq
         id opensmtpf > /dev/null 2>&1 || \
-                adduser --system --home /var/empty --no-create-home \
-                    --disabled-password --gecos "OpenSMTD filter user" \
+                adduser --system --home /var/lib/opensmtpd/empty \
+                    --no-create-home --disabled-password \
+                    --gecos "OpenSMTD filter user" \
                     --ingroup opensmtpf opensmtpf
     ;;
 

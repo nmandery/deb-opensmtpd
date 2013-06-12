@@ -9,7 +9,7 @@ override_dh_auto_configure:
 	    --with-pam \
 	    --with-man=man \
 	    --with-maildir=/var/mail \
-	    --with-privsep-path=/var/empty \
+	    --with-privsep-path=/var/run/opensmtpd/empty \
 	    --with-privsep-user=opensmtpd \
 	    --with-queue-user=opensmtpq \
 	    --with-filter-user=opensmtpf

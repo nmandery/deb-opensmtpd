@@ -1,2 +1,3 @@
+var/lib/opensmtpd/empty
 var/spool/smtpd
 var/spool/smtpd/offline
