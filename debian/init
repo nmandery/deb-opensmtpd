@@ -25,21 +25,30 @@ test -x /usr/sbin/smtpd || exit 0
 
 smtpd_start()
 {
-	start-stop-daemon \
-		--start \
-		--exec "${DAEMON}" 
-	log_progress_msg "opensmtpd"
+  start-stop-daemon \
+    --start \
+    --exec "${DAEMON}" 
+  log_progress_msg "opensmtpd"
 }
 
 smtpd_stop()
 {
-	"${CONTROL}" stop > /dev/null
-	log_progress_msg "opensmtpd"
+  "${CONTROL}" stop > /dev/null
+  log_progress_msg "opensmtpd"
+}
+
+smtpd_config_check()
+{
+  "${DAEMON}" -n 2>/dev/null || \
+    log_end_msg 1 || \
+      "${DAEMON}" -n 
+
 }
 
 case "$1" in
   start)
     log_daemon_msg "Starting MTA"
+    smtpd_config_check
     smtpd_start
     log_end_msg 0
     ;;
@@ -50,6 +59,7 @@ case "$1" in
     ;;
   restart)
     log_daemon_msg "Stopping MTA for restart"
+    smtpd_config_check
     smtpd_stop
     log_end_msg 0
     log_daemon_msg "Restarting MTA"
