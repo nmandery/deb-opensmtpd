@@ -18,7 +18,7 @@ case "$1" in
         done
 	;;
 
-    remove|failed-upgrade|abort-install|abort-upgrade|disappear)
+    remove|failed-upgrade|abort-install|abort-upgrade|disappear|upgrade)
 	;;
 
     *)
