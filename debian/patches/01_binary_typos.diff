@@ -7,8 +7,8 @@ Applied-Upstream: https://github.com/poolpOrg/OpenSMTPD/commit/e39350501f7cbf5e3
 This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
 Index: opensmtpd/smtpd/scheduler.c
 ===================================================================
---- opensmtpd.orig/smtpd/scheduler.c	2013-05-21 16:58:57.714070059 -0400
-+++ opensmtpd/smtpd/scheduler.c	2013-05-21 17:21:12.132173218 -0400
+--- opensmtpd.orig/smtpd/scheduler.c	2013-07-30 11:20:30.511092111 -0400
++++ opensmtpd/smtpd/scheduler.c	2013-07-30 11:20:30.511092111 -0400
 @@ -101,7 +101,7 @@
  		m_get_msgid(&m, &msgid);
  		m_end(&m);
@@ -18,3 +18,16 @@ Index: opensmtpd/smtpd/scheduler.c
  		n = backend->commit(msgid);
  		stat_decrement("scheduler.envelope.incoming", n);
  		stat_increment("scheduler.envelope", n);
+Index: opensmtpd/smtpd/mproc.c
+===================================================================
+--- opensmtpd.orig/smtpd/mproc.c	2013-06-06 09:28:22.391357396 -0400
++++ opensmtpd/smtpd/mproc.c	2013-07-30 11:20:58.499894096 -0400
+@@ -675,7 +675,7 @@
+ 	m_get_typed_sized(m, M_ENVELOPE, &d, &s);
+ 
+ 	if (!envelope_load_buffer(evp, d, s - 1))
+-		fatalx("failed to retreive envelope");
++		fatalx("failed to retrieve envelope");
+ 	evp->id = evpid;
+ #endif
+ }
