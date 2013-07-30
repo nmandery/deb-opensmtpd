@@ -3,3 +3,4 @@
 03_no_hardlinks.diff
 04_no_mailq.diff
 05_no_smtpscript.diff
+06_man_cleanup.diff

@@ -1,0 +1,55 @@
+Description: Remove parts of manpages that don't apply
+Author: Ryan Kavanagh <rak@debian.org>
+Origin: vendor
+Forwarded: not-needed
+---
+This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
+Index: opensmtpd/smtpd/smtpd.8
+===================================================================
+--- opensmtpd.orig/smtpd/smtpd.8	2013-06-06 09:28:22.395357498 -0400
++++ opensmtpd/smtpd/smtpd.8	2013-07-30 09:39:43.056940226 -0400
+@@ -87,26 +87,6 @@
+ .It Fl v
+ Produce more verbose output.
+ .El
+-.Pp
+-If you are running a BSD Operating System,
+-you should use and modify 
+-.Xr mailwrapper 8
+-settings by editing
+-.Pa /etc/mailer.conf :
+-.Bd -literal -offset indent
+-sendmail	/usr/sbin/smtpctl
+-send-mail	/usr/sbin/smtpctl
+-mailq		/usr/sbin/smtpctl
+-makemap		/usr/libexec/smtpd/makemap
+-newaliases	/usr/libexec/smtpd/makemap
+-.Ed
+-.Pp
+-Rebuild the aliases database,
+-and enable the daemon:
+-.Bd -literal -offset indent
+-# newaliases
+-# /etc/rc.d/smtpd start
+-.Ed
+ .Sh FILES
+ .Bl -tag -width "/var/run/smtpd.sockXXX" -compact
+ .It /etc/mail/smtpd.conf
+@@ -134,17 +114,3 @@
+ .Nm
+ program first appeared in
+ .Ox 4.6 .
+-.Sh CAVEATS
+-Because
+-.Xr sendmail 8
+-is still the de facto
+-.Ox
+-mailer,
+-.Nm
+-versions of
+-.Xr aliases 5 ,
+-.Xr forward 5 ,
+-.Xr makemap 8 ,
+-and
+-.Xr newaliases 8
+-are not currently installed.
