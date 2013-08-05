@@ -1,0 +1,10 @@
+opensmtpd for Debian
+--------------------
+
+This package does not install upstream's "mailq" link to "smtpctl" since this
+link is only provided for mailwrapper(8) compatibility (Debian doesn't use
+mailwrapper) and the preferred invocation is via "smtpctl show queue". System
+administrators insisting on having a "mailq" command may instead create a shell
+alias.
+
+ -- Ryan Kavanagh <rak@debian.org>  Mon, 05 Aug 2013 12:08:48 -0400
