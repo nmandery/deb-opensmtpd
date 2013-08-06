@@ -4,14 +4,15 @@ Priority: extra
 Maintainer: Ryan Kavanagh <rak@debian.org>
 Uploaders: Daniel Walrond <debian@djw.org.uk>
 Build-Depends: debhelper (>= 9.0.0)
- , automake
  , autoconf
+ , automake
  , bison
  , libdb-dev
  , libevent-dev
  , libpam0g-dev
- , libtool
  , libssl-dev
+ , libtool
+ , po-debconf
 Standards-Version: 3.9.4
 Homepage: http://www.opensmtpd.org/
 Vcs-Git: git://anonscm.debian.org/collab-maint/opensmtpd.git
