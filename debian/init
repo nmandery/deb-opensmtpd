@@ -2,6 +2,7 @@
 # /etc/init.d/opensmtpd
 #
 # Written by Daniel Walrond <debian@djw.org.uk>
+#        and Ryan Kavanagh <rak@debian.org>
 
 ### BEGIN INIT INFO
 # Provides:          opensmtpd
@@ -13,6 +14,8 @@
 # Description:       OpenSMTPD
 ### END INIT INFO
 
+# Do not "set -e"; /lib/lsb/init-functions included below may fail if "set -e"
+# is in effect and echoing status messages to the console fails.
 set -u
 
 BASE="smtpd"
@@ -104,30 +107,37 @@ stop)
 restart)
   log_daemon_msg "Stopping MTA for restart"
   # If the check fails, the log_end_msg in smtpd_config_check
-    # will output "failed!" for us.
-    if smtpd_config_check; then
-      smtpd_stop
-      log_end_msg $?
-      log_daemon_msg "Restarting MTA"
-      smtpd_start
-      log_end_msg $?
-    fi
-    ;;
-  force-reload)
-    log_daemon_msg "Stopping MTA for reload"
+  # will output "failed!" for us.
+  if smtpd_config_check; then
     smtpd_stop
     log_end_msg $?
     log_daemon_msg "Restarting MTA"
     smtpd_start
     log_end_msg $?
-    ;;
-  status)
-    status_of_proc "${DAEMON}" "MTA ${DESC}"
-    ;;
-  *)
-    echo "Usage: $0 {start|stop|restart|force-reload|status}"
-    exit 1
-    ;;
+  fi
+  ;;
+force-reload)
+  log_daemon_msg "Stopping MTA for reload"
+  smtpd_stop
+  log_end_msg $?
+  log_daemon_msg "Restarting MTA"
+  smtpd_start
+  log_end_msg $?
+  ;;
+check)
+  log_daemon_msg "Checking MTA configuration"
+  if smtpd_config_check; then
+    log_progress_msg "success"
+    log_end_msg $?
+  fi
+  ;;
+status)
+  status_of_proc "${DAEMON}" "MTA ${DESC}"
+  ;;
+*)
+  echo "Usage: $0 {start|stop|restart|force-reload|status|check}"
+  exit 1
+  ;;
 esac
 
 exit 0
