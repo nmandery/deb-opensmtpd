@@ -7,4 +7,8 @@ mailwrapper) and the preferred invocation is via "smtpctl show queue". System
 administrators insisting on having a "mailq" command may instead create a shell
 alias.
 
- -- Ryan Kavanagh <rak@debian.org>  Mon, 05 Aug 2013 12:08:48 -0400
+This package includes patches from upstream adding support for /etc/mailname
+which are not present in the standard OpenSMTPD 5.3 release. For details on the
+function of /etc/mailname, see smtpd.conf(5) and Debian Policy Manual §11.6.
+
+ -- Ryan Kavanagh <rak@debian.org>  Wed, 14 Aug 2013 12:08:48 -0400
