@@ -165,8 +165,8 @@ Index: opensmtpd/smtpd/smtpd.h
  /* waitq.c */
 Index: opensmtpd/smtpd/util.c
 ===================================================================
---- opensmtpd.orig/smtpd/util.c	2013-08-14 09:08:47.457937259 -0400
-+++ opensmtpd/smtpd/util.c	2013-08-14 09:08:47.457937259 -0400
+--- opensmtpd.orig/smtpd/util.c	2013-08-18 13:37:17.884005123 -0400
++++ opensmtpd/smtpd/util.c	2013-08-18 13:38:26.893991928 -0400
 @@ -736,3 +736,72 @@
  
  	return NULL;
@@ -182,8 +182,8 @@ Index: opensmtpd/smtpd/util.c
 +        int     error;
 +        int     ret = 0;
 +
-+        /* First, check if we have "/etc/mail/mailname" */
-+        if ((fp = fopen("/etc/mail/mailname", "r")) == NULL)
++        /* First, check if we have "/etc/mailname" */
++        if ((fp = fopen("/etc/mailname", "r")) == NULL)
 +                goto nomailname;
 +
 +        if ((buf = fgetln(fp, &buflen)) == NULL)
@@ -198,7 +198,7 @@ Index: opensmtpd/smtpd/util.c
 +        }
 +
 +        if (strlcpy(hostname, buf, len) >= len)
-+                fprintf(stderr, "/etc/mail/mailname entry too long");
++                fprintf(stderr, "/etc/mailname entry too long");
 +        else {
 +                ret = 1;
 +                goto end;
