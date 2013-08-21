@@ -1,6 +1,6 @@
 Description: Accept mail for postmaster
  Accept mail destined to postmaster as required by RFC5321 §4.5.1.
-Origin: vendor
+Origin: upstream
 Bug: https://github.com/poolpOrg/OpenSMTPD/issues/289
 Applied-Upstream: https://github.com/poolpOrg/OpenSMTPD/commit/5e538842
 ---
