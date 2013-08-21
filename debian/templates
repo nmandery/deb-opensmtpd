@@ -23,7 +23,8 @@ _Description: Root and postmaster mail recipient:
  .
  Enter a comma-separated list of usernames to which this mail should go. Leave
  this field blank to not create an alias for 'root'; in this case, the 'root'
- account will receive mail destined to 'postmaster' and other system accounts.
+ account will receive mail destined to 'postmaster' and other system accounts,
+ assuming aliases for these accounts do not already exist.
  .
  If you already have a /etc/aliases file, then you may need to add these
  entries.
