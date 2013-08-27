@@ -2,29 +2,27 @@ Template: opensmtpd/mailname
 Type: string
 Default:
 _Description: System mail name:
- The "mail name" is the domain name used to "qualify" _ALL_ mail addresses
- without a domain name. This includes mail to and from <root>: please do not
- make your machine send out mail from root@example.org unless root@example.org
- has told you to. This mail name is also the default hostname used in the SMTP
- greeting banner.
+ The "mail name" is used as the domain name in the email address for
+ messages that only have a "local part" (such as <jrandomuser> or
+ <root>). It should be a fully qualified domain name (FQDN) that you are
+ entitled to use.
  .
- This name will also be used by other programs. It should be a single,
- fully qualified domain name (FQDN).
+ For instance, to allow the local host to generate mail with addresses
+ such as <jrandomuser@example.org>, set the system mail name to
+ "example.org".
  .
- Thus, if a mail address on the local host is foo@example.org,
- the correct value for this option would be example.org.
+ This mail name is used as the hostname in the SMTP greeting banner, and
+ will also be used by other programs.
 
 Template: opensmtpd/root_address
 Type: string
 Default:
 _Description: Root and postmaster mail recipient:
- Mail for the 'postmaster', 'root', and other system accounts should
- be redirected to the user account(s) of the actual system administrator(s).
+ Mail for the "postmaster", "root", and other system accounts should be
+ redirected to the user account(s) of the actual system administrator(s).
  .
- Enter a comma-separated list of usernames to which this mail should go. Leave
- this field blank to not create an alias for 'root'; in this case, the 'root'
- account will receive mail destined to 'postmaster' and other system accounts,
- assuming aliases for these accounts do not already exist.
- .
- If you already have a /etc/aliases file, then you may need to add these
- entries.
+ Please enter a comma-separated list of the usernames of the intended
+ recipients. Leave this field blank to not create an alias for "root";
+ in this case, the root account will receive mail addressed to
+ "postmaster" and other system accounts, assuming aliases for these
+ accounts do not already exist.
