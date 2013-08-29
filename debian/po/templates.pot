@@ -1,7 +1,9 @@
-# SOME DESCRIPTIVE TITLE.
-# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
-# This file is distributed under the same license as the PACKAGE package.
+# This file is distributed under the same license as the opensmtpd package;
+# see the file debian/copyright for further copyright details.
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+# Please do not translate the string "example.org", this is a
+# registered example second level domain name (RFC2606).
 #
 #, fuzzy
 msgid ""
