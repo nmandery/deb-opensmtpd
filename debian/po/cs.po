@@ -1,0 +1,92 @@
+# Czech PO debconf template translation of opensmtpd.
+# Copyright (C) 2013 Michal Simunek <michal.simunek@gmail.com>
+# This file is distributed under the same license as the opensmtpd package.
+# Michal Simunek <michal.simunek@gmail.com>, 2013.
+#
+# Please do not translate the string "example.org", this is a
+# registered example second level domain name (RFC2606).
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: opensmtpd 5.3.3p1-1\n"
+"Report-Msgid-Bugs-To: opensmtpd@packages.debian.org\n"
+"POT-Creation-Date: 2013-08-27 12:02-0400\n"
+"PO-Revision-Date: 2013-08-29 09:18-0400\n"
+"Last-Translator: Michal Simunek <michal.simunek@gmail.com>\n"
+"Language-Team: Czech <debian-l10n-czech@lists.debian.org>\n"
+"Language: cs\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#. Type: string
+#. Description
+#: ../templates:1001
+msgid "System mail name:"
+msgstr "Systémový název pro poštu:"
+
+#. Type: string
+#. Description
+#: ../templates:1001
+msgid ""
+"The \"mail name\" is used as the domain name in the email address for "
+"messages that only have a \"local part\" (such as <jrandomuser> or <root>). "
+"It should be a fully qualified domain name (FQDN) that you are entitled to "
+"use."
+msgstr ""
+"\"Název pošty\" se používá v e-mailové adrese u zpráv, které mají pouze "
+"\"místní část\", jako doménové jméno (jako je <jrandomuser> či <root>). "
+"Musí to být plně kvalifikované doménové jméno (FQDN), které jste oprávněni "
+"používat."
+
+#. Type: string
+#. Description
+#: ../templates:1001
+msgid ""
+"For instance, to allow the local host to generate mail with addresses such "
+"as <jrandomuser@example.org>, set the system mail name to \"example.org\"."
+msgstr ""
+"Pokud se má například povolit místnímu hostiteli vytvářet poštu s adresami "
+"jako je <jrandomuser@example.org>, nastavte systémový název pro poštu na \"example.org\"."
+
+#. Type: string
+#. Description
+#: ../templates:1001
+msgid ""
+"This mail name is used as the hostname in the SMTP greeting banner, and will "
+"also be used by other programs."
+msgstr ""
+"Název pošty se použije jako název hostitele v SMTP greeting banneru a budou "
+"jej také používat ostatní programy."
+
+#. Type: string
+#. Description
+#: ../templates:2001
+msgid "Root and postmaster mail recipient:"
+msgstr "Příjemce pošty root a postmaster:"
+
+#. Type: string
+#. Description
+#: ../templates:2001
+msgid ""
+"Mail for the \"postmaster\", \"root\", and other system accounts should be "
+"redirected to the user account(s) of the actual system administrator(s)."
+msgstr ""
+"Pošta pro \"postmaster\", \"root\" a ostatní systémové účty musí být "
+"přesměrována na uživatelský účet (účty) skutečného (skutečné) správce systému."
+
+#. Type: string
+#. Description
+#: ../templates:2001
+msgid ""
+"Please enter a comma-separated list of the usernames of the intended "
+"recipients. Leave this field blank to not create an alias for \"root\"; in "
+"this case, the root account will receive mail addressed to \"postmaster\" "
+"and other system accounts, assuming aliases for these accounts do not "
+"already exist."
+msgstr ""
+"Zadejte prosím seznam uživatelských jmen určených příjemců oddělený "
+"čárkou, Políčko ponechte prázdné, pokud se nemá vytvářet alias pro \"root\"; "
+"v takovém případě bude účet root dostávat poštu určenou pro \"postmaster\" "
+"a ostatním systémovým účtům, za předpokladu, že pro tyto účty již "
+"neexistují aliasy."
