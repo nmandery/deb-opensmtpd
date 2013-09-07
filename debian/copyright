@@ -28,6 +28,15 @@ Copyright: Copyright (C) 2013 Ryan Kavanagh <rak@debian.org>
            Copyright (C) 2013 Justin B Rye <justin.byam.rye@gmail.com>
 License: ISC
 
+Files: debian/po/*
+Copyright: Copyright (C) 2013 Ryan Kavanagh <rak@debian.org>
+           Copyright (C) 2013 Justin B Rye <justin.byam.rye@gmail.com>
+           Copyright (C) 2013 Joe Hansen <joedalton2@yahoo.dk>
+           Copyright (C) 2013 Michal Simunek <michal.simunek@gmail.com>
+           Copyright (C) 2013 Beatrice Torracca <beatricet@libero.it>
+           Copyright (C) 2013 victory <victory.deb@gmail.com>
+License: ISC
+
 
 Files: smtpd/ssl_privsep.c
 Copyright: Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
