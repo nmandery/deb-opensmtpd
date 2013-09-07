@@ -6,4 +6,4 @@
 06_man_cleanup.diff
 07_mailname.diff
 08_empty_alias.diff
-09_postmaster.diff
+10_automake_114.diff

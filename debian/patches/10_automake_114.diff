@@ -1,0 +1,18 @@
+Description: Allow the use of automake 1.14
+Author: Ryan Kavanagh <rak@debian.org>
+Origin: Debian
+---
+This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
+Index: opensmtpd/bootstrap
+===================================================================
+--- opensmtpd.orig/bootstrap	2013-06-06 09:28:22.379357089 -0400
++++ opensmtpd/bootstrap	2013-09-07 09:36:40.626709617 -0400
+@@ -36,7 +36,7 @@
+ 
+ # Check for automake
+ amvers="no"
+-for v in 13 12 11 10 9 8 7 6 5; do
++for v in 14 13 12 11 10 9 8 7 6 5; do
+   if automake-1.${v} --version >/dev/null 2>&1; then
+     amvers="-1.${v}"
+     break
