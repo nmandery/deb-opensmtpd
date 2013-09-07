@@ -1,5 +1,5 @@
-opensmtpd (5.3.3p1-1) UNRELEASED; urgency=low
+opensmtpd (5.3.3p1-1) unstable; urgency=low
 
   * Initial release (Closes: #706985)
 
- -- Ryan Kavanagh <rak@debian.org>  Mon, 13 May 2013 09:12:24 -0400
+ -- Ryan Kavanagh <rak@debian.org>  Sat, 07 Sep 2013 12:29:01 -0400
