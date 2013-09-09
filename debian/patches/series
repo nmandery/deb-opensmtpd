@@ -7,3 +7,4 @@
 07_mailname.diff
 08_empty_alias.diff
 10_automake_114.diff
+11_sys-mount.h_hurd.diff
