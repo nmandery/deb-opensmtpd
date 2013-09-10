@@ -1,0 +1,19 @@
+Description: kfreebsd-any and hurd-any require -lcrypt
+Author: Ryan Kavanagh <rak@debian.org>
+Origin: Debian
+Applied-Upstream: https://github.com/poolpOrg/OpenSMTPD/commit/2cd8058
+---
+This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
+Index: opensmtpd-5.3.3p1/configure.ac
+===================================================================
+--- opensmtpd-5.3.3p1.orig/configure.ac	2013-06-04 08:13:28.000000000 +0000
++++ opensmtpd-5.3.3p1/configure.ac	2013-09-10 00:20:42.000000000 +0000
+@@ -400,7 +400,7 @@
+ 		;;
+ 	esac
+ 	;;
+-*-*-linux*)
++*-*-linux* | *-gnu* | *-k*bsd*-gnu* )
+ 	check_for_libcrypt_later=1
+ 	AC_DEFINE([SPT_TYPE], [SPT_REUSEARGV])
+ 	case `uname -r` in
