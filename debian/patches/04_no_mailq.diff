@@ -17,9 +17,9 @@ Index: opensmtpd/smtpd/Makefile.am
  		echo "$(DESTDIR)$(sysconfdir)/smtpd.conf already exists, install will not overwrite"; \
  	fi
  
--	ln -srf $(DESTDIR)$(sbindir)/smtpctl$(EXEEXT)				\
+-	ln -sf $(DESTDIR)$(sbindir)/smtpctl$(EXEEXT)				\
 -		$(DESTDIR)$(bindir)/mailq$(EXEEXT);
 -
- 	ln -srf $(DESTDIR)$(pkglibexecdir)/makemap$(EXEEXT)			\
+ 	ln -sf ../../$(pkglibexecdir)/makemap$(EXEEXT)			\
  		$(DESTDIR)$(bindir)/newaliases$(EXEEXT);
  
