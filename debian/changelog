@@ -1,3 +1,19 @@
+opensmtpd (5.3.3p1-2) unstable; urgency=low
+
+  * The BSD-4-clause license is actually BSD-3-clause + restrictions; update
+    debian/copyright accordingly
+  * Added Russian translations (Closes: #721269);
+    Thanks Yuri Kozlov <yuray@komyakino.ru>
+  * Fix FTBFS on hurd-i386 due to missing sys/mount.h,
+    11_sys-mount.h_hurd.diff
+  * Check if -lcrypt is needed on GNU/kFreeBSD, GNU/Hurd; fixes FTBFS,
+    12_kfreebsd-hurd_crypt.h.diff
+  * Drop the -r (--relative) argument to ln, it isn't supported on all
+    architectures yet and was causing a FTBFS on those architectures, affects
+    03_no_hardlinks.diff and 04_no_mailq.diff
+
+ -- Ryan Kavanagh <rak@debian.org>  Tue, 10 Sep 2013 19:00:18 -0400
+
 opensmtpd (5.3.3p1-1) unstable; urgency=low
 
   * Initial release (Closes: #706985)
