@@ -4,11 +4,11 @@ Origin: Debian
 Applied-Upstream: https://github.com/poolpOrg/OpenSMTPD/commit/2cd8058
 ---
 This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
-Index: opensmtpd-5.3.3p1/configure.ac
+Index: opensmtpd/configure.ac
 ===================================================================
---- opensmtpd-5.3.3p1.orig/configure.ac	2013-06-04 08:13:28.000000000 +0000
-+++ opensmtpd-5.3.3p1/configure.ac	2013-09-10 00:20:42.000000000 +0000
-@@ -400,7 +400,7 @@
+--- opensmtpd.orig/configure.ac	2013-09-21 08:17:35.837420035 -0400
++++ opensmtpd/configure.ac	2013-09-21 08:17:35.837420035 -0400
+@@ -401,7 +401,7 @@
  		;;
  	esac
  	;;
