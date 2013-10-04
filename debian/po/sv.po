@@ -1,0 +1,93 @@
+# Translation of opensmtpd debconf template to Swedish
+# Copyright (C) 2013 Martin Bagge <brother@bsnet.se>
+# This file is distributed under the same license as the opensmtpd package.
+#
+# Martin Bagge <brother@bsnet.se>, 2013
+#
+# Please do not translate the string "example.org", this is a
+# registered example second level domain name (RFC2606).
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: opensmtpd\n"
+"Report-Msgid-Bugs-To: opensmtpd@packages.debian.org\n"
+"POT-Creation-Date: 2013-08-27 12:02-0400\n"
+"PO-Revision-Date: 2013-10-01 15:54+0100\n"
+"Last-Translator: Martin Bagge / brother <brother@bsnet.se>\n"
+"Language-Team: Swedish <debian-l10n-swedish@lists.debian.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: Poedit 1.5.4\n"
+"Language: Swedish\n"
+
+#. Type: string
+#. Description
+#: ../templates:1001
+msgid "System mail name:"
+msgstr "Systemets postnamn:"
+
+#. Type: string
+#. Description
+#: ../templates:1001
+msgid ""
+"The \"mail name\" is used as the domain name in the email address for "
+"messages that only have a \"local part\" (such as <jrandomuser> or <root>). "
+"It should be a fully qualified domain name (FQDN) that you are entitled to "
+"use."
+msgstr ""
+"Postnamnet (\"mail name\") används som domändel i e-post-adresser för "
+"meddelanden som bara har lokal del (exempelvis <kallekula> eller <root>). "
+"Det ska vara ett komplett kvalificerat domännamn (FQDN) som du får lov att "
+"använda."
+
+#. Type: string
+#. Description
+#: ../templates:1001
+msgid ""
+"For instance, to allow the local host to generate mail with addresses such "
+"as <jrandomuser@example.org>, set the system mail name to \"example.org\"."
+msgstr ""
+"Exempelvis för att tillåta den lokala värden att sapa mail med adresser i "
+"stil med <kallekula@example.org> ska systemets postnamn vara \"example.org\"."
+
+#. Type: string
+#. Description
+#: ../templates:1001
+msgid ""
+"This mail name is used as the hostname in the SMTP greeting banner, and will "
+"also be used by other programs."
+msgstr ""
+"Detta postnamn används som värdnamn i hälsningsfrasen för SMTP och kommer "
+"också att användas av andra program."
+
+#. Type: string
+#. Description
+#: ../templates:2001
+msgid "Root and postmaster mail recipient:"
+msgstr "Mottagare för post till root och postmaster:"
+
+#. Type: string
+#. Description
+#: ../templates:2001
+msgid ""
+"Mail for the \"postmaster\", \"root\", and other system accounts should be "
+"redirected to the user account(s) of the actual system administrator(s)."
+msgstr ""
+"Post till \"postmaster\", \"root\" och andra systemkonton ska hänvisas till "
+"ett (eller flera) användarkonto som läses av systemadministratören."
+
+#. Type: string
+#. Description
+#: ../templates:2001
+msgid ""
+"Please enter a comma-separated list of the usernames of the intended "
+"recipients. Leave this field blank to not create an alias for \"root\"; in "
+"this case, the root account will receive mail addressed to \"postmaster\" "
+"and other system accounts, assuming aliases for these accounts do not "
+"already exist."
+msgstr ""
+"Ange en kommaseparerad lista med användarnamn för de tilltänkta mottagarna. "
+"Lämna fältet tomt för att inte skapa ett alias för \"root\". I det fallet "
+"kommer root-kontot att få post adresserad till \"postmaster\" och andra "
+"systemkonton. Med antagandet att alias för dessa inte redan finns."
