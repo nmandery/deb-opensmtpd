@@ -1,3 +1,14 @@
+opensmtpd (5.3.3p1-4) unstable; urgency=low
+
+  * Added French translations (Closes: #724343)
+    Thanks to Jean-Pierre Giraud <jean-pierregiraud@neuf.fr>
+  * Added Swedish translation (Closes: #725103)
+    Thanks to Martin Bagge <brother@bsnet.se>
+  * Don't truncate process names in syslog, 14_syslog_prognames.diff
+    (Closes: #724062)
+
+ -- Ryan Kavanagh <rak@debian.org>  Sun, 20 Oct 2013 08:07:22 -0400
+
 opensmtpd (5.3.3p1-3) unstable; urgency=low
 
   * Fix filesystem queue issue on btrfs, 13_reserve_inodes.diff
