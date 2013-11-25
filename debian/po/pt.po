@@ -1,0 +1,98 @@
+# Translation of opensmtpd's debconf messages to european portuguese
+# This file is distributed under the same license as the opensmtpd package;
+# see the file debian/copyright for further copyright details.
+#
+# Please do not translate the string "example.org", this is a
+# registered example second level domain name (RFC2606).
+#
+# Américo Monteiro <a_monteiro@gmx.com>, 2013.
+msgid ""
+msgstr ""
+"Project-Id-Version: opensmtpd 5.3.3p1-4\n"
+"Report-Msgid-Bugs-To: opensmtpd@packages.debian.org\n"
+"POT-Creation-Date: 2013-08-27 12:02-0400\n"
+"PO-Revision-Date: 2013-11-18 22:56+0000\n"
+"Last-Translator: Américo Monteiro <a_monteiro@gmx.com>\n"
+"Language-Team: Portuguese <traduz@debianpt.org>\n"
+"Language: pt\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"X-Generator: Lokalize 1.4\n"
+
+#. Type: string
+#. Description
+#: ../templates:1001
+msgid "System mail name:"
+msgstr "Nome de mail do sistema:"
+
+#. Type: string
+#. Description
+#: ../templates:1001
+msgid ""
+"The \"mail name\" is used as the domain name in the email address for "
+"messages that only have a \"local part\" (such as <jrandomuser> or <root>). "
+"It should be a fully qualified domain name (FQDN) that you are entitled to "
+"use."
+msgstr ""
+"O \"nome de mail\" é usado como o nome de domínio no endereço de mail para "
+"mensagens que apenas têm uma \"parte local\" (como <algumutilizador> ou "
+"<root>). Deverá ser um nome de domínio totalmente qualificado (FQDN) que "
+"você tem o direito de usar."
+
+#. Type: string
+#. Description
+#: ../templates:1001
+msgid ""
+"For instance, to allow the local host to generate mail with addresses such "
+"as <jrandomuser@example.org>, set the system mail name to \"example.org\"."
+msgstr ""
+"Por exemplo, para permitir à máquina local gerar mail com endereços como "
+"<algumutilizador@example.org>, defina o nome de mail do sistema para "
+"\"example.org\"."
+
+#. Type: string
+#. Description
+#: ../templates:1001
+msgid ""
+"This mail name is used as the hostname in the SMTP greeting banner, and will "
+"also be used by other programs."
+msgstr ""
+"Este nome de mail é usado como o nome de máquina no estandarte de boas "
+"vindas do SMTP, e será usado também por outros programas."
+
+#. Type: string
+#. Description
+#: ../templates:2001
+msgid "Root and postmaster mail recipient:"
+msgstr "Recipiente de mail do root e postmaster:"
+
+#. Type: string
+#. Description
+#: ../templates:2001
+msgid ""
+"Mail for the \"postmaster\", \"root\", and other system accounts should be "
+"redirected to the user account(s) of the actual system administrator(s)."
+msgstr ""
+"Mail para o \"postmaster\", \"root\", e outras contas do sistema devem ser "
+"redireccionado para a(s) conta(s) de utilizadores dos administrador(es) "
+"actuais do sistema."
+
+#. Type: string
+#. Description
+#: ../templates:2001
+msgid ""
+"Please enter a comma-separated list of the usernames of the intended "
+"recipients. Leave this field blank to not create an alias for \"root\"; in "
+"this case, the root account will receive mail addressed to \"postmaster\" "
+"and other system accounts, assuming aliases for these accounts do not "
+"already exist."
+msgstr ""
+"por favor insira uma lista separada por vírgulas dos nomes de utilizadores "
+"dos recipientes pretendidos. Deixe este campo em vazio para não criar um "
+"alias para o \"root\"; neste caso a conta root irá receber mail endereçado "
+"ao \"postmaster\" e a outras contas do sistema, isto assumindo que não "
+"existem já nomes alternativos (alias) para estas contas."
+
+
