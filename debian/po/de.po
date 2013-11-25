@@ -1,0 +1,93 @@
+# Translation of the opensmtpd debconf template to German.
+# Copyright (C) 2013 Ryan Kavanagh, Daniel Walrond, Justin B Rye.
+# This file is distributed under the same license as the opensmtpd package.
+# Copyright of this file Chris Leick <c.leick@vollbio.de> 2013.
+#
+# Please do not translate the string "example.org", this is a
+# registered example second level domain name (RFC2606).
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: opensmtpd 5.3.3p1-1\n"
+"Report-Msgid-Bugs-To: opensmtpd@packages.debian.org\n"
+"POT-Creation-Date: 2013-08-27 12:02-0400\n"
+"PO-Revision-Date: 2013-11-17 18:31+0100\n"
+"Last-Translator: Chris Leick <c.leick@vollbio.de>\n"
+"Language-Team: de <debian-l10n-german@lists.debian.org>\n"
+"Language: de\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#. Type: string
+#. Description
+#: ../templates:1001
+msgid "System mail name:"
+msgstr "E-Mail-Name des Systems:"
+
+#. Type: string
+#. Description
+#: ../templates:1001
+msgid ""
+"The \"mail name\" is used as the domain name in the email address for "
+"messages that only have a \"local part\" (such as <jrandomuser> or <root>). "
+"It should be a fully qualified domain name (FQDN) that you are entitled to "
+"use."
+msgstr ""
+"Der »E-Mail-Name« wird in der E-Mail-Adresse als Domain-Name für Nachrichten "
+"verwendet, die nur einen »lokalen Teil« (wie <jzufallsbenutzer> oder <root>) "
+"haben. Es sollte ein vollständiger Domain-Name (»fully qualified domain "
+"name«/FQDN) sein, zu dessen Verwendung Sie berechtigt sind."
+
+#. Type: string
+#. Description
+#: ../templates:1001
+msgid ""
+"For instance, to allow the local host to generate mail with addresses such "
+"as <jrandomuser@example.org>, set the system mail name to \"example.org\"."
+msgstr ""
+"Um etwa dem lokalen Rechner zu gestatten, E-Mails mit Adressen wie "
+"<jzufallsbenutzer@example.org> zu generieren, setzen Sie den E-Mail-Namen auf "
+"»example.org«."
+
+#. Type: string
+#. Description
+#: ../templates:1001
+msgid ""
+"This mail name is used as the hostname in the SMTP greeting banner, and will "
+"also be used by other programs."
+msgstr ""
+"Dieser E-Mail-Name wird im SMTP-Gruß-Banner als Rechnername benutzt und auch "
+"von anderen Programmen verwendet."
+
+#. Type: string
+#. Description
+#: ../templates:2001
+msgid "Root and postmaster mail recipient:"
+msgstr "Root- und Postmaster-E-Mail-Empfangsadresse:"
+
+#. Type: string
+#. Description
+#: ../templates:2001
+msgid ""
+"Mail for the \"postmaster\", \"root\", and other system accounts should be "
+"redirected to the user account(s) of the actual system administrator(s)."
+msgstr ""
+"E-Mails für »postmaster«, »root« und andere Systemkonten sollten an die "
+"Benutzerkonten der tatsächlichen Systemadministratoren weitergeleitet werden."
+
+#. Type: string
+#. Description
+#: ../templates:2001
+msgid ""
+"Please enter a comma-separated list of the usernames of the intended "
+"recipients. Leave this field blank to not create an alias for \"root\"; in "
+"this case, the root account will receive mail addressed to \"postmaster\" "
+"and other system accounts, assuming aliases for these accounts do not "
+"already exist."
+msgstr ""
+"Bitte geben Sie eine durch Kommas getrennte Liste von Benutzernamen der "
+"beabsichtigten Empfänger ein. Lassen Sie dieses Feld leer, um keinen Alias "
+"für »root« zu erstellen. In diesem Fall wird das Root-Konto die an "
+"»postmaster« und andere Systemkonten adressierten E-Mails unter der Annahme, "
+"dass für diese Konten noch keine Alias bestehen, empfangen."
