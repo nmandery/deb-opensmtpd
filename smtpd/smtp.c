@@ -69,6 +69,7 @@ smtp_imsg(struct mproc *p, struct imsg *imsg)
 		switch (imsg->hdr.type) {
 		case IMSG_DNS_PTR:
 		case IMSG_LKA_EXPAND_RCPT:
+		case IMSG_LKA_HELO:
 		case IMSG_LKA_AUTHENTICATE:
 		case IMSG_LKA_SSL_INIT:
 		case IMSG_LKA_SSL_VERIFY:
@@ -79,7 +80,6 @@ smtp_imsg(struct mproc *p, struct imsg *imsg)
 
 	if (p->proc == PROC_MFA) {
 		switch (imsg->hdr.type) {
-		case IMSG_MFA_SMTP_DATA:
 		case IMSG_MFA_SMTP_RESPONSE:
 			smtp_session_imsg(p, imsg);
 			return;
@@ -118,6 +118,7 @@ smtp_imsg(struct mproc *p, struct imsg *imsg)
 			env->sc_ssl_dict = calloc(1, sizeof *env->sc_ssl_dict);
 			if (env->sc_ssl_dict == NULL)
 				fatal(NULL);
+			dict_init(env->sc_ssl_dict);
 			TAILQ_INIT(env->sc_listeners);
 			return;
 
@@ -227,13 +228,6 @@ smtp_sig_handler(int sig, short event, void *p)
 static void
 smtp_shutdown(void)
 {
-#ifdef VALGRIND
-//	child_free();
-	free_peers();
-	clean_setproctitle();
-	event_base_free(NULL);
-#endif
-
 	log_info("info: smtp server exiting");
 	_exit(0);
 }
@@ -250,7 +244,7 @@ smtp(void)
 	case -1:
 		fatal("smtp: cannot fork");
 	case 0:
-		env->sc_pid = getpid();
+		post_fork(PROC_SMTP);
 		break;
 	default:
 		return (pid);
@@ -258,9 +252,10 @@ smtp(void)
 
 	purge_config(PURGE_EVERYTHING);
 
-	pw = env->sc_pw;
+	if ((pw = getpwnam(SMTPD_USER)) == NULL)
+		fatalx("unknown user " SMTPD_USER);
 
-	if (chroot(pw->pw_dir) == -1)
+	if (chroot(PATH_CHROOT) == -1)
 		fatal("smtp: chroot");
 	if (chdir("/") == -1)
 		fatal("smtp: chdir(\"/\")");
@@ -306,7 +301,7 @@ smtp_setup_events(void)
 
 	TAILQ_FOREACH(l, env->sc_listeners, entry) {
 		log_debug("debug: smtp: listen on %s port %d flags 0x%01x"
-		    " cert \"%s\"", ss_to_text(&l->ss), ntohs(l->port),
+		    " pki \"%s\"", ss_to_text(&l->ss), ntohs(l->port),
 		    l->flags, l->ssl_cert_name);
 
 		session_socket_blockmode(l->fd, BM_NONBLOCK);
@@ -375,6 +370,8 @@ smtp_enqueue(uid_t *euid)
 #ifdef HAVE_STRUCT_SOCKADDR_STORAGE_SS_LEN
 		listener->ss.ss_len = sizeof(struct sockaddr *);
 #endif
+		strlcpy(listener->hostname, "localhost",
+		    sizeof(listener->hostname));
 	}
 
 	/*

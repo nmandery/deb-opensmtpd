@@ -101,10 +101,13 @@ control_imsg(struct mproc *p, struct imsg *imsg)
 	}
 	if (p->proc == PROC_SCHEDULER) {
 		switch (imsg->hdr.type) {
+		case IMSG_CTL_OK:
+		case IMSG_CTL_FAIL:
 		case IMSG_CTL_LIST_MESSAGES:
 			c = tree_get(&ctl_conns, imsg->hdr.peerid);
 			if (c == NULL)
 				return;
+			imsg->hdr.peerid = 0;
 			m_forward(&c->mproc, imsg);
 			return;
 		}
@@ -115,6 +118,20 @@ control_imsg(struct mproc *p, struct imsg *imsg)
 			c = tree_get(&ctl_conns, imsg->hdr.peerid);
 			if (c == NULL)
 				return;
+			m_forward(&c->mproc, imsg);
+			return;
+		}
+	}
+	if (p->proc == PROC_MTA) {
+		switch (imsg->hdr.type) {
+		case IMSG_CTL_MTA_SHOW_HOSTS:
+		case IMSG_CTL_MTA_SHOW_RELAYS:
+		case IMSG_CTL_MTA_SHOW_ROUTES:
+		case IMSG_CTL_MTA_SHOW_HOSTSTATS:
+			c = tree_get(&ctl_conns, imsg->hdr.peerid);
+			if (c == NULL)
+				return;
+			imsg->hdr.peerid = 0;
 			m_forward(&c->mproc, imsg);
 			return;
 		}
@@ -169,30 +186,12 @@ control_sig_handler(int sig, short event, void *p)
 	}
 }
 
-pid_t
-control(void)
+int
+control_create_socket(void)
 {
-	struct sockaddr_un	 sun;
-	int			 fd;
-	mode_t			 old_umask;
-	pid_t			 pid;
-	struct passwd		*pw;
-	struct event		 ev_sigint;
-	struct event		 ev_sigterm;
-
-	switch (pid = fork()) {
-	case -1:
-		fatal("control: cannot fork");
-	case 0:
-		env->sc_pid = getpid();
-		break;
-	default:
-		return (pid);
-	}
-
-	purge_config(PURGE_EVERYTHING);
-
-	pw = env->sc_pw;
+	struct sockaddr_un	sun;
+	int			fd;
+	mode_t			old_umask;
 
 	if ((fd = socket(AF_UNIX, SOCK_STREAM, 0)) == -1)
 		fatal("control: socket");
@@ -226,10 +225,36 @@ control(void)
 	session_socket_blockmode(fd, BM_NONBLOCK);
 	control_state.fd = fd;
 
+	return fd;
+}
+
+pid_t
+control(void)
+{
+	pid_t			 pid;
+	struct passwd		*pw;
+	struct event		 ev_sigint;
+	struct event		 ev_sigterm;
+
+	switch (pid = fork()) {
+	case -1:
+		fatal("control: cannot fork");
+	case 0:
+		post_fork(PROC_CONTROL);
+		break;
+	default:
+		return (pid);
+	}
+
+	purge_config(PURGE_EVERYTHING);
+
+	if ((pw = getpwnam(SMTPD_USER)) == NULL)
+		fatalx("unknown user " SMTPD_USER);
+
 	stat_backend = env->sc_stat;
 	stat_backend->init();
 
-	if (chroot(pw->pw_dir) == -1)
+	if (chroot(PATH_CHROOT) == -1)
 		fatal("control: chroot");
 	if (chdir("/") == -1)
 		fatal("control: chdir(\"/\")");
@@ -278,13 +303,6 @@ control(void)
 static void
 control_shutdown(void)
 {
-#ifdef VALGRIND
-	child_free();
-	free_peers();
-	clean_setproctitle();
-	event_base_free(NULL);
-#endif
-
 	log_info("info: control process exiting");
 	unlink(SMTPD_SOCKET);
 	_exit(0);
@@ -569,6 +587,14 @@ control_dispatch_ext(struct mproc *p, struct imsg *imsg)
 		m_compose(p, IMSG_CTL_OK, 0, 0, -1, NULL, 0);
 		return;
 
+	case IMSG_CTL_PAUSE_EVP:
+		if (c->euid)
+			goto badcred;
+
+		imsg->hdr.peerid = c->id;
+		m_forward(p_scheduler, imsg);
+		return;
+
 	case IMSG_CTL_PAUSE_MDA:
 		if (c->euid)
 			goto badcred;
@@ -609,6 +635,14 @@ control_dispatch_ext(struct mproc *p, struct imsg *imsg)
 		env->sc_flags |= SMTPD_SMTP_PAUSED;
 		m_compose(p_smtp, IMSG_CTL_PAUSE_SMTP, 0, 0, -1, NULL, 0);
 		m_compose(p, IMSG_CTL_OK, 0, 0, -1, NULL, 0);
+		return;
+
+	case IMSG_CTL_RESUME_EVP:
+		if (c->euid)
+			goto badcred;
+
+		imsg->hdr.peerid = c->id;
+		m_forward(p_scheduler, imsg);
 		return;
 
 	case IMSG_CTL_RESUME_MDA:
@@ -653,6 +687,14 @@ control_dispatch_ext(struct mproc *p, struct imsg *imsg)
 		m_compose(p, IMSG_CTL_OK, 0, 0, -1, NULL, 0);
 		return;
 
+	case IMSG_CTL_RESUME_ROUTE:
+		if (c->euid)
+			goto badcred;
+
+		m_forward(p_mta, imsg);
+		m_compose(p, IMSG_CTL_OK, 0, 0, -1, NULL, 0);
+		return;
+
 	case IMSG_CTL_LIST_MESSAGES:
 		if (c->euid)
 			goto badcred;
@@ -667,20 +709,31 @@ control_dispatch_ext(struct mproc *p, struct imsg *imsg)
 		    imsg->data, imsg->hdr.len - sizeof(imsg->hdr));
 		return;
 
+	case IMSG_CTL_MTA_SHOW_HOSTS:
+	case IMSG_CTL_MTA_SHOW_RELAYS:
+	case IMSG_CTL_MTA_SHOW_ROUTES:
+	case IMSG_CTL_MTA_SHOW_HOSTSTATS:
+		if (c->euid)
+			goto badcred;
+
+		imsg->hdr.peerid = c->id;
+		m_forward(p_mta, imsg);
+		return;
+
 	case IMSG_CTL_SCHEDULE:
 		if (c->euid)
 			goto badcred;
 
+		imsg->hdr.peerid = c->id;
 		m_forward(p_scheduler, imsg);
-		m_compose(p, IMSG_CTL_OK, 0, 0, -1, NULL, 0);
 		return;
 
 	case IMSG_CTL_REMOVE:
 		if (c->euid)
 			goto badcred;
 
+		imsg->hdr.peerid = c->id;
 		m_forward(p_scheduler, imsg);
-		m_compose(p, IMSG_CTL_OK, 0, 0, -1, NULL, 0);
 		return;
 
 	case IMSG_LKA_UPDATE_TABLE:

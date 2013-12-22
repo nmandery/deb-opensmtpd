@@ -42,6 +42,8 @@
 #include "smtpd.h"
 #include "log.h"
 
+#define TAG_CHAR	'+'	/* gilles+tag@ */
+
 #define	EXPAND_DEPTH	10
 
 #define	F_WAITING	0x01
@@ -70,7 +72,23 @@ static void lka_resume(struct lka_session *);
 static size_t lka_expand_format(char *, size_t, const struct envelope *,
     const struct userinfo *);
 static void mailaddr_to_username(const struct mailaddr *, char *, size_t);
-static const char * mailaddr_tag(const struct mailaddr *);
+static int mailaddr_tag(const struct mailaddr *, char *, size_t);
+
+static int mod_lowercase(char *, size_t);
+static int mod_uppercase(char *, size_t);
+static int mod_strip(char *, size_t);
+
+struct modifiers {
+	char	*name;
+	int	(*f)(char *buf, size_t len);
+} token_modifiers[] = {
+	{ "lowercase",	mod_lowercase },
+	{ "uppercase",	mod_uppercase },
+	{ "strip",	mod_strip },
+	{ "raw",	NULL },		/* special case, must stay last */
+};
+static const char	*unsafe = "*?";
+
 
 static int		init;
 static struct tree	sessions;
@@ -129,9 +147,21 @@ lka_session_forward_reply(struct forward_req *fwreq, int fd)
 		break;
 	case 1:
 		if (fd == -1) {
-			log_trace(TRACE_EXPAND, "expand: no .forward for "
-			    "user %s, just deliver", fwreq->user);
-			lka_submit(lks, rule, xn);
+			if (lks->expand.rule->r_forwardonly) {
+				log_trace(TRACE_EXPAND, "expand: no .forward "
+				    "for user %s on forward-only rule", fwreq->user);
+				lks->error = LKA_TEMPFAIL;
+			}
+			else if (lks->expand.rule->r_action == A_NONE) {
+				log_trace(TRACE_EXPAND, "expand: no .forward "
+				    "for user %s and no default action on rule", fwreq->user);
+				lks->error = LKA_PERMFAIL;
+			}
+			else {
+				log_trace(TRACE_EXPAND, "expand: no .forward for "
+				    "user %s, just deliver", fwreq->user);
+				lka_submit(lks, rule, xn);
+			}
 		}
 		else {
 			/* expand for the current user and rule */
@@ -148,9 +178,21 @@ lka_session_forward_reply(struct forward_req *fwreq, int fd)
 				lks->error = LKA_TEMPFAIL;
 			}
 			else if (ret == 0) {
-				log_trace(TRACE_EXPAND, "expand: empty .forward "
-				    "for user %s, just deliver", fwreq->user);
-				lka_submit(lks, rule, xn);
+				if (lks->expand.rule->r_forwardonly) {
+					log_trace(TRACE_EXPAND, "expand: empty .forward "
+					    "for user %s on forward-only rule", fwreq->user);
+					lks->error = LKA_TEMPFAIL;
+				}
+				else if (lks->expand.rule->r_action == A_NONE) {
+					log_trace(TRACE_EXPAND, "expand: empty .forward "
+					    "for user %s and no default action on rule", fwreq->user);
+					lks->error = LKA_PERMFAIL;
+				}
+				else {
+					log_trace(TRACE_EXPAND, "expand: empty .forward "
+					    "for user %s, just deliver", fwreq->user);
+					lka_submit(lks, rule, xn);
+				}
 			}
 		}
 		break;
@@ -368,27 +410,35 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 		lks->rule = rule;
 		lks->node = xn;
 
-#ifdef VALGRIND
 		bzero(&fwreq, sizeof(fwreq));
-#endif
-
 		fwreq.id = lks->id;
 		(void)strlcpy(fwreq.user, lk.userinfo.username, sizeof(fwreq.user));
 		(void)strlcpy(fwreq.directory, lk.userinfo.directory, sizeof(fwreq.directory));
 		fwreq.uid = lk.userinfo.uid;
 		fwreq.gid = lk.userinfo.gid;
+
 		m_compose(p_parent, IMSG_PARENT_FORWARD_OPEN, 0, 0, -1,
 		    &fwreq, sizeof(fwreq));
 		lks->flags |= F_WAITING;
 		break;
 
 	case EXPAND_FILENAME:
+		if (rule->r_forwardonly) {
+			log_trace(TRACE_EXPAND, "expand: filename matched on forward-only rule");
+			lks->error = LKA_TEMPFAIL;
+			break;
+		}
 		log_trace(TRACE_EXPAND, "expand: lka_expand: filename: %s "
 		    "[depth=%d]", xn->u.buffer, xn->depth);
 		lka_submit(lks, rule, xn);
 		break;
 
 	case EXPAND_ERROR:
+		if (rule->r_forwardonly) {
+			log_trace(TRACE_EXPAND, "expand: error matched on forward-only rule");
+			lks->error = LKA_TEMPFAIL;
+			break;
+		}
 		log_trace(TRACE_EXPAND, "expand: lka_expand: error: %s "
 		    "[depth=%d]", xn->u.buffer, xn->depth);
 		if (xn->u.buffer[0] == '4')
@@ -399,6 +449,11 @@ lka_expand(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 		break;
 
 	case EXPAND_FILTER:
+		if (rule->r_forwardonly) {
+			log_trace(TRACE_EXPAND, "expand: filter matched on forward-only rule");
+			lks->error = LKA_TEMPFAIL;
+			break;
+		}
 		log_trace(TRACE_EXPAND, "expand: lka_expand: filter: %s "
 		    "[depth=%d]", xn->u.buffer, xn->depth);
 		lka_submit(lks, rule, xn);
@@ -412,7 +467,7 @@ lka_find_ancestor(struct expandnode *xn, enum expand_type type)
 	while (xn && (xn->type != type))
 		xn = xn->parent;
 	if (xn == NULL) {
-		log_warnx("warn: lka_find_ancestor: no ancestors of type %i",
+		log_warnx("warn: lka_find_ancestor: no ancestors of type %d",
 		    type);
 		fatalx(NULL);
 	}
@@ -425,8 +480,8 @@ lka_submit(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 	union lookup		 lk;
 	struct envelope		*ep;
 	struct expandnode	*xn2;
-	const char		*tag;
-	int			r;
+	int			 r;
+	char			 tag[EXPAND_BUFFER];
 
 	ep = xmemdup(&lks->envelope, sizeof *ep, "lka_submit");
 	ep->expire = rule->r_qexpire;
@@ -448,6 +503,7 @@ lka_submit(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 			strlcpy(ep->sender.domain, rule->r_as->domain,
 			    sizeof ep->sender.domain);
 		break;
+	case A_NONE:
 	case A_MBOX:
 	case A_MAILDIR:
 	case A_FILENAME:
@@ -494,8 +550,14 @@ lka_submit(struct lka_session *lks, struct rule *rule, struct expandnode *xn)
 			ep->agent.mda.method = rule->r_action;
 			strlcpy(ep->agent.mda.buffer, rule->r_value.buffer,
 			    sizeof ep->agent.mda.buffer);
-			tag = mailaddr_tag(&ep->dest);
-			if (rule->r_action == A_MAILDIR && tag && tag[0]) {
+
+			bzero(tag, sizeof tag);
+			if (! mailaddr_tag(&ep->dest, tag, sizeof tag)) {
+				lks->error = LKA_PERMFAIL;
+				free(ep);
+				return;
+			}
+			if (rule->r_action == A_MAILDIR && tag[0]) {
 				strlcat(ep->agent.mda.buffer, "/.",
 				    sizeof(ep->agent.mda.buffer));
 				strlcat(ep->agent.mda.buffer, tag,
@@ -530,14 +592,16 @@ lka_expand_token(char *dest, size_t len, const char *token,
 	char		rtoken[MAXTOKENLEN];
 	char		tmp[EXPAND_BUFFER];
 	const char     *string;
-	char	       *lbracket, *rbracket, *content, *sep;
+	char	       *lbracket, *rbracket, *content, *sep, *mods;
 	ssize_t		i;
 	ssize_t		begoff, endoff;
 	const char     *errstr = NULL;
 	int		replace = 1;
+	int		raw = 0;
 
 	begoff = 0;
 	endoff = EXPAND_BUFFER;
+	mods = NULL;
 
 	if (strlcpy(rtoken, token, sizeof rtoken) >= sizeof rtoken)
 		return 0;
@@ -568,6 +632,12 @@ lka_expand_token(char *dest, size_t len, const char *token,
 		 }
 		 if (errstr)
 			 return 0;
+
+		 /* token:mod_1,mod_2,mod_n -> extract modifiers */
+		 mods = strchr(rbracket + 1, ':');
+	} else {
+		if ((mods = strchr(rtoken, ':')) != NULL)
+			*mods++ = '\0';
 	}
 
 	/* token -> expanded token */
@@ -609,6 +679,38 @@ lka_expand_token(char *dest, size_t len, const char *token,
 		string = ep->rcpt.domain;
 	else
 		return 0;
+
+	if (string != tmp) {
+		if (strlcpy(tmp, string, sizeof tmp) >= sizeof tmp)
+			return 0;
+		string = tmp;
+	}
+
+	/*  apply modifiers */
+	if (mods != NULL) {
+		do {
+			if ((sep = strchr(mods, '|')) != NULL)
+				*sep++ = '\0';
+			for (i = 0; (size_t)i < nitems(token_modifiers); ++i) {
+				if (! strcasecmp(token_modifiers[i].name, mods)) {
+					if (token_modifiers[i].f == NULL) {
+						raw = 1;
+						break;
+					}
+					if (! token_modifiers[i].f(tmp, sizeof tmp))
+						return 0; /* modifier error */
+					break;
+				}
+			}
+			if ((size_t)i == nitems(token_modifiers))
+				return 0; /* modifier not found */
+		} while ((mods = sep) != NULL);
+	}
+	
+	if (! raw)
+		for (i = 0; (size_t)i < strlen(tmp); ++i)
+			if (strchr(unsafe, tmp[i]))
+				tmp[i] = ':';
 
 	/* expanded string is empty */
 	i = strlen(string);
@@ -718,9 +820,6 @@ lka_expand_format(char *buf, size_t len, const struct envelope *ep,
 		if (exptoklen == 0)
 			return 0;
 
-		if (! lowercase(exptok, exptok, sizeof exptok))
-			return 0;
-
 		memcpy(ptmp, exptok, exptoklen);
 		pbuf   = ebuf + 1;
 		ptmp  += exptoklen;
@@ -743,20 +842,70 @@ mailaddr_to_username(const struct mailaddr *maddr, char *dst, size_t len)
 	xlowercase(dst, maddr->user, len);
 
 	/* gilles+hackers@ -> gilles@ */
-	if ((tag = strchr(dst, '+')) != NULL)
+	if ((tag = strchr(dst, TAG_CHAR)) != NULL)
 		*tag++ = '\0';
 }
 
-static const char *
-mailaddr_tag(const struct mailaddr *maddr)
+static int
+mailaddr_tag(const struct mailaddr *maddr, char *dest, size_t len)
 {
-	const char *tag;
+	char		*tag;
+	char		*sanitized;
 
-	if ((tag = strchr(maddr->user, '+'))) {
+	if ((tag = strchr(maddr->user, TAG_CHAR))) {
 		tag++;
 		while (*tag == '.')
 			tag++;
 	}
+	if (tag == NULL)
+		return 1;
 
-	return (tag);
+	if (strlcpy(dest, tag, len) >= len)
+		return 0;
+	for (sanitized = dest; *sanitized; sanitized++)
+		if (strchr(unsafe, *sanitized))
+			*sanitized = ':';
+	return 1;
+}
+
+static int 
+mod_lowercase(char *buf, size_t len)
+{
+	char tmp[EXPAND_BUFFER];
+
+	if (! lowercase(tmp, buf, sizeof tmp))
+		return 0;
+	if (strlcpy(buf, tmp, len) >= len)
+		return 0;
+	return 1;
+}
+
+static int 
+mod_uppercase(char *buf, size_t len)
+{
+	char tmp[EXPAND_BUFFER];
+
+	if (! uppercase(tmp, buf, sizeof tmp))
+		return 0;
+	if (strlcpy(buf, tmp, len) >= len)
+		return 0;
+	return 1;
+}
+
+static int
+mod_strip(char *buf, size_t len)
+{
+	char *tag, *at;
+	unsigned int i;
+
+	/* gilles+hackers -> gilles */
+	if ((tag = strchr(buf, TAG_CHAR)) != NULL) {
+		/* gilles+hackers@poolp.org -> gilles@poolp.org */
+		if ((at = strchr(tag, '@')) != NULL) {
+			for (i = 0; i <= strlen(at); ++i)
+				tag[i] = at[i];
+		} else
+			*tag = '\0';
+	}
+	return 1;
 }

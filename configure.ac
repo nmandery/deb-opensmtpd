@@ -14,9 +14,9 @@
 # ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 # OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-dnl AC_INIT([OpenSMTPD-portable],[4.9.0],[Charles Longeau <chl@openbsd.org>])
-dnl AC_INIT([OpenSMTPD-portable], m4_esyscmd(date +%Y%m%d%H%M%S | sed -e 's/^\(.*\)$/5.2-\1/' | tr -d '\n'),[Charles Longeau <chl@openbsd.org>])
-AC_INIT([OpenSMTPD], [5.3.3p1], [bugs@opensmtpd.org])
+dnl AC_INIT([OpenSMTPD-5.4.1p1],[4.9.0],[Charles Longeau <chl@openbsd.org>])
+dnl AC_INIT([OpenSMTPD-5.4.1p1], m4_esyscmd(date +%Y%m%d%H%M%S | sed -e 's/^\(.*\)$/5.2-\1/' | tr -d '\n'),[Charles Longeau <chl@openbsd.org>])
+AC_INIT([opensmtpd], [5.4.1p1], [bugs@opensmtpd.org])
 AC_LANG([C])
 AC_CONFIG_MACRO_DIR([m4])
 
@@ -31,6 +31,8 @@ AC_PROG_INSTALL
 AC_PROG_LIBTOOL
 AC_PATH_PROG([AR], [ar])
 AC_PATH_PROG([CAT], [cat])
+AC_PATH_PROG([ZCAT], [zcat])
+AC_SUBST([ZCAT])
 AC_PATH_PROG([SED], [sed])
 AC_PATH_PROG([TEST_MINUS_S_SH], [bash])
 AC_PATH_PROG([TEST_MINUS_S_SH], [ksh])
@@ -41,14 +43,20 @@ AC_PATH_PROG([NROFF], [nroff])
 AC_PATH_PROG([MANDOC], [mandoc])
 AC_PROG_YACC
 #AC_PATH_PROG(BYACC, byacc)
-AC_PATH_PROG(MAIL_LOCAL, mail.local)
+#AC_PATH_PROG(MAIL_LOCAL, mail.local)
+#AC_PATH_PROG(ENCRYPT, encrypt)
 
 AM_INIT_AUTOMAKE
-AM_CONDITIONAL(HAVE_MAIL_LOCAL, [test -n "$MAIL_LOCAL"])
 
 LT_INIT
 
-#from here everything comes from portable openssh configure.ac script
+#here we should test for variables set by libtool detection
+if test "x$with_pic" != "xno" ; then
+	CFLAGS="$CFLAGS ${pic_flag}"
+fi
+
+
+#from here everything comes from 5.4.1p1 openssh configure.ac script
 
 #l50
 dnl select manpage formatter
@@ -84,15 +92,20 @@ AC_CHECK_DECL([LLONG_MAX], [have_llong_max=1], , [#include <limits.h>])
 
 #l131
 if test "$GCC" = "yes" || test "$GCC" = "egcs"; then
+	OSSH_CHECK_CFLAG_COMPILE([-Qunused-arguments -Werror],
+	    [-Qunused-arguments])
+	OSSH_CHECK_CFLAG_COMPILE([-Wunknown-warning-option -Werror],
+	    [-Wno-unknown-warning-option])
 	OSSH_CHECK_CFLAG_COMPILE([-Wall])
 	OSSH_CHECK_CFLAG_COMPILE([-Wpointer-arith])
 	OSSH_CHECK_CFLAG_COMPILE([-Wuninitialized])
 	OSSH_CHECK_CFLAG_COMPILE([-Wsign-compare])
 	OSSH_CHECK_CFLAG_COMPILE([-Wformat-security])
+	OSSH_CHECK_CFLAG_COMPILE([-Wsizeof-pointer-memaccess])
 	OSSH_CHECK_CFLAG_COMPILE([-Wpointer-sign], [-Wno-pointer-sign])
 	OSSH_CHECK_CFLAG_COMPILE([-Wunused-result], [-Wno-unused-result])
 	OSSH_CHECK_CFLAG_COMPILE([-fno-strict-aliasing])
-	OSSH_CHECK_CFLAG_COMPILE([-D_FORTIFY_SOURCE=2])
+#	OSSH_CHECK_CFLAG_COMPILE([-D_FORTIFY_SOURCE=2])
 	AC_MSG_CHECKING([gcc version])
 	GCC_VER=`$CC -v 2>&1 | $AWK '/gcc version /{print $3}'`
 	case $GCC_VER in
@@ -206,7 +219,7 @@ AC_ARG_WITH([cflags],
 		fi
 	]
 )
-	AC_ARG_WITH([cppflags],
+AC_ARG_WITH([cppflags],
 	[  --with-cppflags         Specify additional flags to pass to preprocessor] ,
 	[
 		if test -n "$withval"  &&  test "x$withval" != "xno"  &&  \
@@ -244,87 +257,38 @@ AC_ARG_WITH([Werror],
 		fi
 	]
 )
-#l291
+#l296
 
 AC_CHECK_HEADERS([ \
 	crypt.h \
 	dirent.h \
 	fcntl.h \
-	ndir.h \
+	getopt.h \
+	limits.h \
+	maillock.h \
 	mach/mach_time.h \
+	ndir.h \
 	netdb.h \
 	pam/pam_appl.h \
+	paths.h \
 	security/pam_appl.h \
 	shadow.h \
 	sys/dir.h \
 	sys/file.h \
+	sys/mount.h \
 	sys/ndir.h \
 	sys/pstat.h \
 	sys/statfs.h \
+	sys/time.h \
 	sys/un.h \
+	time.h \
 	ucred.h \
 	util.h \
+	utime.h \
 	vis.h
 ])
 
-##chl
-AC_CHECK_HEADER(db_185.h, [AC_DEFINE([HAVE_DB_185_H], [], [if you have the <db_185.h> header file]) ] , [
-AC_CHECK_HEADER(db.h,     [AC_DEFINE([HAVE_DB_H],     [], [if you have the <db.h> header file]) ] , [
-AC_CHECK_HEADER(db1/db.h, [AC_DEFINE([HAVE_DB1_DB_H], [], [if you have the <db1/db.h> header file]) ] , [
-				AC_MSG_ERROR([*** Can't find Berkeley DB headers (see config.log for details) ***])
-])])])
-
-AC_MSG_CHECKING([if dbopen will link])
-AC_LINK_IFELSE([AC_LANG_PROGRAM([[
-#ifdef HAVE_DB_H
-#include <db.h>
-#elif defined(HAVE_DB1_DB_H)
-#include <db1/db.h>
-#elif defined(HAVE_DB_185_H)
-#include <db_185.h>
-#endif
-				]], [[
-	dbopen (0, 0, 0, 0, 0);
-				]])],
-		    AC_MSG_RESULT([yes]),
-		   [AC_MSG_RESULT([no])
-		    saved_LIBS="$LIBS"
-		    LIBS="$LIBS -ldb"
-		    AC_MSG_CHECKING([for dbopen in -ldb])
-		    AC_LINK_IFELSE([AC_LANG_PROGRAM([[
-#ifdef HAVE_DB_H
-#include <db.h>
-#elif defined(HAVE_DB1_DB_H)
-#include <db1/db.h>
-#elif defined(HAVE_DB_185_H)
-#include <db_185.h>
-#endif
-				]], [[
-	dbopen (0, 0, 0, 0, 0);
-				]])],
-			[AC_MSG_RESULT([yes])],
-			[AC_MSG_RESULT([no])
-			LIBS="$saved_LIBS -ldb1"
-			AC_MSG_CHECKING([for dbopen in -ldb1])
-			AC_LINK_IFELSE([AC_LANG_PROGRAM([[
-#ifdef HAVE_DB_H
-#include <db.h>
-#elif defined(HAVE_DB1_DB_H)
-#include <db1/db.h>
-#elif defined(HAVE_DB_185_H)
-#include <db_185.h>
-#endif
-				]], [[
-	dbopen (0, 0, 0, 0, 0);
-				]])],
-			[AC_MSG_RESULT([yes])],
-			[LIBS="$saved_LIBS"
-			 AC_MSG_RESULT([no])])
-			])
-		    ])
-##end of chl
-
-#l374
+#l379
 # login_cap.h requires sys/types.h on NetBSD
 AC_CHECK_HEADERS([login_cap.h], [], [], [
 #include <sys/types.h>
@@ -334,9 +298,9 @@ AC_CHECK_HEADERS([login_cap.h], [], [], [
 AC_CHECK_HEADERS([sys/mount.h], [], [], [
 #include <sys/param.h>
 ])
-#l382
+#l387
 
-#l389
+#l400 (customized)
 # Check for some target-specific stuff
 case "$host" in
 *-*-aix*)
@@ -376,7 +340,7 @@ main() { if (NSVersionOfRunTimeLibrary("System") >= (60 << 16))
 		supported by bsd-setproctitle.c])
 	;;
 *-*-dragonfly*)
-	SSHDLIBS="$SSHDLIBS -lcrypt"
+	SMTPDLIBS="$SMTPDLIBS -lcrypt"
 	;;
 *-*-hpux*)
 	# first we define all of the options common to all HP-UX releases
@@ -400,7 +364,7 @@ main() { if (NSVersionOfRunTimeLibrary("System") >= (60 << 16))
 		;;
 	esac
 	;;
-*-*-linux*)
+*-*-linux* | *-gnu* | *-k*bsd*-gnu* )
 	check_for_libcrypt_later=1
 	AC_DEFINE([SPT_TYPE], [SPT_REUSEARGV])
 	case `uname -r` in
@@ -415,17 +379,18 @@ main() { if (NSVersionOfRunTimeLibrary("System") >= (60 << 16))
 	if test "x$withval" != "xno" ; then
 		need_dash_r=1
 	fi
-	AC_DEFINE([BROKEN_STRNVIS], [1], [NetBSD strnvis has swapped parameters])
+	#not in 5.4.1p1 OpenSSH, maybe because they don't use portable OpenSSH?
+	AC_DEFINE([BROKEN_STRNVIS], [1], [NetBSD strnvis does not do what we need])
 	;;
 *-*-freebsd*)
 	check_for_libcrypt_later=1
 	AC_DEFINE([BROKEN_GLOB], [1], [FreeBSD glob does not do what we need])
-	AC_DEFINE([BROKEN_STRNVIS], [1], [FreeBSD strnvis has swapped parameters])
+	AC_DEFINE([BROKEN_STRNVIS], [1], [FreeBSD strnvis does not do what we need])
 	;;
 *-*-openbsd*)
 	AC_DEFINE([HAVE_ATTRIBUTE__SENTINEL__], [1], [OpenBSD's gcc has sentinel])
 	AC_DEFINE([HAVE_ATTRIBUTE__BOUNDED__], [1], [OpenBSD's gcc has bounded])
-	echo "Please use -current or http://www.opensmtpd.org/archives/opensmtpd-5.3.3.tar.gz"
+	echo "Please use -current or a native version at http://www.opensmtpd.org/archives/"
 	;;
 *-*-solaris*)
 	if test "x$withval" != "xno" ; then
@@ -454,7 +419,7 @@ AC_RUN_IFELSE([AC_LANG_PROGRAM([[ #include <stdio.h> ]], [[ exit(0); ]])],
 
 dnl Checks for header files.
 # Checks for libraries.
-AC_CHECK_FUNC([yp_match], , [AC_CHECK_LIB([nsl], [yp_match])])
+#AC_CHECK_FUNC([yp_match], , [AC_CHECK_LIB([nsl], [yp_match])])
 AC_CHECK_FUNC([setsockopt], , [AC_CHECK_LIB([socket], [setsockopt])])
 
 dnl IRIX and Solaris 2.5.1 have dirname() in libgen
@@ -494,9 +459,9 @@ int main(int argc, char **argv) {
 		fi
 	])
 ])
-#l1056
+#l1069
 
-#l1060
+#l1073
 AC_SEARCH_LIBS([basename], [gen], [AC_DEFINE([HAVE_BASENAME], [1],
 	[Define if you have the basename function.])])
 
@@ -602,22 +567,25 @@ dnl UnixWare 2.x
 AC_CHECK_FUNC([strcasecmp],
 	[], [ AC_CHECK_LIB([resolv], [strcasecmp], [LIBS="$LIBS -lresolv"]) ]
 )
-#l1164
+AC_CHECK_FUNCS([utimes],
+	[], [ AC_CHECK_LIB([c89], [utimes], [AC_DEFINE([HAVE_UTIMES])
+					LIBS="$LIBS -lc89"]) ]
+)
 
-#l1170
 dnl    Checks for libutil functions
 AC_CHECK_HEADERS([bsd/libutil.h libutil.h])
 AC_SEARCH_LIBS([fmt_scaled], [util bsd])
+AC_SEARCH_LIBS([scan_scaled], [util bsd])
 #AC_SEARCH_LIBS([login], [util bsd])
 #AC_SEARCH_LIBS([logout], [util bsd])
 #AC_SEARCH_LIBS([logwtmp], [util bsd])
 #AC_SEARCH_LIBS([openpty], [util bsd])
 #AC_SEARCH_LIBS([updwtmp], [util bsd])
 #AC_CHECK_FUNCS([fmt_scaled login logout openpty updwtmp logwtmp])
-AC_CHECK_FUNCS([fmt_scaled])
-#l1178
+AC_CHECK_FUNCS([fmt_scaled scan_scaled])
+#l1192
 
-#l1236
+#l1250
 AC_MSG_CHECKING([whether struct dirent allocates space for d_name])
 AC_RUN_IFELSE(
 	[AC_LANG_PROGRAM([[
@@ -647,14 +615,15 @@ if test -d "/proc/$$/fd" ; then
 else
 	AC_MSG_RESULT([no])
 fi
-#l1264
+#l1278
 
-#l1513
+#l1527 (customized)
 dnl    Checks for library functions. Please keep in alphabetical order
 AC_CHECK_FUNCS([ \
 	arc4random \
-	arc4random_buf \
-	arc4random_uniform \
+        arc4random_buf \
+        arc4random_stir \
+        arc4random_uniform \
 	asprintf \
 	b64_ntop \
 	__b64_ntop \
@@ -665,6 +634,7 @@ AC_CHECK_FUNCS([ \
 	closefrom \
 	dirfd \
 	dirname \
+	endgrent \
 	fgetln \
 	freeaddrinfo \
 	getaddrinfo \
@@ -672,22 +642,38 @@ AC_CHECK_FUNCS([ \
 	getopt \
 	getpeereid \
 	getspnam \
+	inet_aton \
+	inet_ntoa \
+	inet_ntop \
 	memmove \
+	nsleep \
+	pidfile \
 	pw_dup \
+	setenv \
+	setlinebuf \
 	setproctitle \
 	setregid \
 	setreuid \
+	setsid \
+	sigaction \
+	socketpair \
+	strdup \
+	strerror \
 	strlcat \
 	strlcpy \
 	strnvis \
-	strtonum \
 	strmode \
+	strtonum \
 	sysconf \
+	tcgetpgrp \
+	truncate \
+	vasprintf \
+	vsnprintf \
 	waitpid \
 ])
-#l1615
+#l1631
 
-#l1629
+#l1645
 # IRIX has a const char return value for gai_strerror()
 AC_CHECK_FUNCS([gai_strerror], [
 	AC_DEFINE([HAVE_GAI_STRERROR])
@@ -703,9 +689,17 @@ const char *gai_strerror(int);
 			]])], [
 		AC_DEFINE([HAVE_CONST_GAI_STRERROR_PROTO], [1],
 		[Define if gai_strerror() returns const char *])], [])])
-#l1643
+#l1659
 
-#l1650
+#l1661
+AC_SEARCH_LIBS([nanosleep], [rt posix4], [AC_DEFINE([HAVE_NANOSLEEP], [1],
+	[Some systems put nanosleep outside of libc])])
+
+AC_SEARCH_LIBS([clock_gettime], [rt],
+	[AC_DEFINE([HAVE_CLOCK_GETTIME], [1], [Have clock_gettime])])
+#l1665
+
+#l1669
 AC_CHECK_DECL([strsep],
 	[AC_CHECK_FUNCS([strsep])],
 	[],
@@ -714,9 +708,9 @@ AC_CHECK_DECL([strsep],
 # include <string.h>
 #endif
 	])
-#l1657
+#l1676
 
-#l1674
+#l1693
 AC_CHECK_DECLS([O_NONBLOCK], , ,
 	[
 #include <sys/types.h>
@@ -733,12 +727,45 @@ AC_CHECK_DECLS([writev], , , [
 #include <sys/uio.h>
 #include <unistd.h>
 	])
-#l1689
 
-#l1695
+AC_CHECK_DECLS([MAXSYMLINKS], , , [
+#include <sys/param.h>
+	])
+
 AC_CHECK_DECLS([offsetof], , , [
 #include <stddef.h>
 	])
+
+# extra bits for select(2)
+AC_CHECK_DECLS([howmany, NFDBITS], [], [], [[
+#include <sys/param.h>
+#include <sys/types.h>
+#ifdef HAVE_SYS_SYSMACROS_H
+#include <sys/sysmacros.h>
+#endif
+#ifdef HAVE_SYS_SELECT_H
+#include <sys/select.h>
+#endif
+#ifdef HAVE_SYS_TIME_H
+#include <sys/time.h>
+#endif
+#ifdef HAVE_UNISTD_H
+#include <unistd.h>
+#endif
+	]])
+AC_CHECK_TYPES([fd_mask], [], [], [[
+#include <sys/param.h>
+#include <sys/types.h>
+#ifdef HAVE_SYS_SELECT_H
+#include <sys/select.h>
+#endif
+#ifdef HAVE_SYS_TIME_H
+#include <sys/time.h>
+#endif
+#ifdef HAVE_UNISTD_H
+#include <unistd.h>
+#endif
+	]])
 
 AC_CHECK_FUNCS([setresuid], [
 	dnl Some platorms have setresuid that isn't implemented, test for this
@@ -788,15 +815,15 @@ AC_CHECK_FUNCS([setresgid], [
 
 dnl    Checks for time functions
 AC_CHECK_FUNCS([gettimeofday time])
-#l1746
+#l1796
 
-#l1756
+#l1806
 AC_CHECK_FUNC([daemon],
 	[AC_DEFINE([HAVE_DAEMON], [1], [Define if your libraries define daemon()])],
 	[AC_CHECK_LIB([bsd], [daemon],
 		[LIBS="$LIBS -lbsd"; AC_DEFINE([HAVE_DAEMON])])]
 )
-#l1760
+#l1810
 
 ##chl
 AC_CHECK_FUNC([fparseln],
@@ -805,16 +832,10 @@ AC_CHECK_FUNC([fparseln],
 		[LIBS="$LIBS -lutil"; AC_DEFINE([HAVE_FPARSELN])])]
 )
 
-AC_CHECK_FUNC([clock_gettime],
-	[AC_DEFINE([HAVE_CLOCK_GETTIME], [1], [Define if your libraries define clock_gettime()])],
-	[AC_CHECK_LIB([rt], [clock_gettime],
-		[LIBS="$LIBS -lrt"; AC_DEFINE([HAVE_CLOCK_GETTIME])])]
-)
-
 AC_SEARCH_LIBS(res_9_b64_ntop, resolv)
 ##chl
 
-#l1769
+#l1819
 # Check for broken snprintf
 if test "x$ac_cv_func_snprintf" = "xyes" ; then
 	AC_MSG_CHECKING([whether snprintf correctly terminates long strings])
@@ -925,9 +946,9 @@ AC_RUN_IFELSE(
 	]
 )
 fi
-#l1878
+#l1928
 
-#l1926
+#l1976
 if test "x$ac_cv_func_getaddrinfo" = "xyes" && \
     test "x$check_for_hpux_broken_getaddrinfo" = "x1"; then
 	AC_MSG_CHECKING([if getaddrinfo seems to work])
@@ -1054,9 +1075,9 @@ if test "x$ac_cv_func_getaddrinfo" = "xyes" && \
 		]
 	)
 fi
-#l2051
+#l2101
 
-#l2070
+#l2120
 # Search for OpenSSL
 saved_CPPFLAGS="$CPPFLAGS"
 saved_LDFLAGS="$LDFLAGS"
@@ -1252,9 +1273,43 @@ AC_LINK_IFELSE(
 		)
 	]
 )
-#l2263
+#l2313
 
-#l2373
+##chl
+EXPERIMENTAL_GCM_CRYPTO=no
+AC_MSG_CHECKING([if programs using OpenSSL EVP_aes_256_gcm() will link])
+AC_LINK_IFELSE(
+	[AC_LANG_PROGRAM([[ #include <openssl/evp.h> ]],
+	[[ EVP_aes_256_gcm(); ]])],
+	[
+		AC_MSG_RESULT([yes])
+		AC_DEFINE([HAVE_GCM_CRYPTO], [1],
+			[Define if you want to use GCM crypto support])
+		EXPERIMENTAL_GCM_CRYPTO=yes
+	],
+	[
+		AC_MSG_RESULT([no])
+	]
+)
+AM_CONDITIONAL([HAVE_GCM_CRYPTO], [test $EXPERIMENTAL_GCM_CRYPTO = yes])
+##chl
+
+##gilles
+AC_MSG_CHECKING([if SSL_OP_NO_TICKET is supported])
+AC_EGREP_CPP(HAVE_SSL_OP_NO_TICKET, [
+#include <openssl/ssl.h>
+#ifdef SSL_OP_NO_TICKET
+HAVE_SSL_OP_NO_TICKET
+#endif
+], [
+   AC_MSG_RESULT([yes])
+], [
+   AC_MSG_RESULT([no])
+   AC_DEFINE([SSL_OP_NO_TICKET], [0], [Defined to 0 if SSL_OP_NO_TICKET isn't supported by OpenSSL.])
+])
+##gilles
+
+#l2425
 # Some systems want crypt() from libcrypt, *not* the version in OpenSSL,
 # because the system crypt() is more featureful.
 if test "x$check_for_libcrypt_before" = "x1"; then
@@ -1266,9 +1321,9 @@ fi
 if test "x$check_for_libcrypt_later" = "x1"; then
 	AC_CHECK_LIB([crypt], [crypt], [LIBS="$LIBS -lcrypt"])
 fi
-#l2383
+#l2435
 
-#l2433
+#l2499 (customized s/SSH/SMTP/)
 ### Configure cryptographic random number support
 
 # Check wheter OpenSSL seeds itself
@@ -1401,7 +1456,7 @@ AC_ARG_WITH([pam],
 
 			PAM_MSG="yes"
 
-			SSHDLIBS="$SSHDLIBS -lpam"
+			SMTPDLIBS="$SMTPDLIBS -lpam"
 			AC_DEFINE([USE_PAM], [1],
 				[Define if you want to enable PAM support])
 
@@ -1411,7 +1466,7 @@ AC_ARG_WITH([pam],
 					# libdl already in LIBS
 					;;
 				*)
-					SSHDLIBS="$SSHDLIBS -ldl"
+					SMTPDLIBS="$SMTPDLIBS -ldl"
 					;;
 				esac
 			fi
@@ -1455,35 +1510,7 @@ AC_ARG_WITH([privsep-user],
 AC_DEFINE_UNQUOTED([SMTPD_USER], ["$SMTPD_USER"],
 	[non-privileged user for privilege separation])
 AC_SUBST([SMTPD_USER])
-#l2618
-
-SMTPD_LOOKUP_USER=_smtpl
-AC_ARG_WITH([lookup-user],
-	[  --with-lookup-user=user Specify non-privileged user for lookup process],
-	[
-		if test -n "$withval"  &&  test "x$withval" != "xno"  &&  \
-		    test "x${withval}" != "xyes"; then
-			SMTPD_LOOKUP_USER=$withval
-		fi
-	]
-)
-AC_DEFINE_UNQUOTED([SMTPD_LOOKUP_USER], ["$SMTPD_LOOKUP_USER"],
-	[non-privileged user for lookup process])
-AC_SUBST([SMTPD_LOOKUP_USER])
-
-SMTPD_FILTER_USER=_smtpf
-AC_ARG_WITH([filter-user],
-	[  --with-filter-user=user Specify non-privileged user for filter process],
-	[
-		if test -n "$withval"  &&  test "x$withval" != "xno"  &&  \
-		    test "x${withval}" != "xyes"; then
-			SMTPD_FILTER_USER=$withval
-		fi
-	]
-)
-AC_DEFINE_UNQUOTED([SMTPD_FILTER_USER], ["$SMTPD_FILTER_USER"],
-	[non-privileged user for filter process])
-AC_SUBST([SMTPD_FILTER_USER])
+#l2684
 
 SMTPD_QUEUE_USER=_smtpq
 AC_ARG_WITH([queue-user],
@@ -1499,7 +1526,7 @@ AC_DEFINE_UNQUOTED([SMTPD_QUEUE_USER], ["$SMTPD_QUEUE_USER"],
 	[non-privileged user for queue process])
 AC_SUBST([SMTPD_QUEUE_USER])
 
-#l2803
+#l2869 (customized)
 # Check for  long long datatypes
 AC_CHECK_TYPES([long long, unsigned long long, long double])
 
@@ -1981,9 +2008,28 @@ main() { exit(0); }
 		AC_MSG_WARN([cross compiling: Assuming working snprintf()])
 	)
 fi
-#l3283
+#l3349
 
-#l3317
+#l3371
+AC_CHECK_MEMBERS([struct passwd.pw_gecos, struct passwd.pw_class,
+struct passwd.pw_change, struct passwd.pw_expire],
+[], [], [[
+#include <sys/types.h>
+#include <pwd.h>
+]])
+
+AC_CHECK_MEMBER([struct __res_state.retrans], [], [AC_DEFINE([__res_state], [state],
+	[Define if we don't have struct __res_state in resolv.h])],
+[[
+#include <stdio.h>
+#if HAVE_SYS_TYPES_H
+# include <sys/types.h>
+#endif
+#include <netinet/in.h>
+#include <arpa/nameser.h>
+#include <resolv.h>
+]])
+
 AC_CACHE_CHECK([for ss_family field in struct sockaddr_storage],
 		ac_cv_have_ss_family_in_struct_ss, [
 	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
@@ -2010,45 +2056,6 @@ AC_CACHE_CHECK([for __ss_family field in struct sockaddr_storage],
 if test "x$ac_cv_have___ss_family_in_struct_ss" = "xyes" ; then
 	AC_DEFINE([HAVE___SS_FAMILY_IN_SS], [1],
 		[Fields in struct sockaddr_storage])
-fi
-
-AC_CACHE_CHECK([for pw_class field in struct passwd],
-		ac_cv_have_pw_class_in_struct_passwd, [
-	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[ #include <pwd.h> ]],
-	[[ struct passwd p; p.pw_class = 0; ]])],
-	[ ac_cv_have_pw_class_in_struct_passwd="yes" ],
-	[ ac_cv_have_pw_class_in_struct_passwd="no" 
-	])
-])
-if test "x$ac_cv_have_pw_class_in_struct_passwd" = "xyes" ; then
-	AC_DEFINE([HAVE_PW_CLASS_IN_PASSWD], [1],
-		[Define if your password has a pw_class field])
-fi
-
-AC_CACHE_CHECK([for pw_expire field in struct passwd],
-		ac_cv_have_pw_expire_in_struct_passwd, [
-	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[ #include <pwd.h> ]],
-	[[ struct passwd p; p.pw_expire = 0; ]])],
-	[ ac_cv_have_pw_expire_in_struct_passwd="yes" ],
-	[ ac_cv_have_pw_expire_in_struct_passwd="no" 
-	])
-])
-if test "x$ac_cv_have_pw_expire_in_struct_passwd" = "xyes" ; then
-	AC_DEFINE([HAVE_PW_EXPIRE_IN_PASSWD], [1],
-		[Define if your password has a pw_expire field])
-fi
-
-AC_CACHE_CHECK([for pw_change field in struct passwd],
-		ac_cv_have_pw_change_in_struct_passwd, [
-	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[ #include <pwd.h> ]],
-	[[ struct passwd p; p.pw_change = 0; ]])],
-	[ ac_cv_have_pw_change_in_struct_passwd="yes" ],
-	[ ac_cv_have_pw_change_in_struct_passwd="no" 
-	])
-])
-if test "x$ac_cv_have_pw_change_in_struct_passwd" = "xyes" ; then
-	AC_DEFINE([HAVE_PW_CHANGE_IN_PASSWD], [1],
-		[Define if your password has a pw_change field])
 fi
 
 dnl make sure we're using the real structure members and not defines
@@ -2209,9 +2216,11 @@ if test "x$ac_cv_have_getopt_optreset" = "xyes" ; then
 	AC_DEFINE([HAVE_GETOPT_OPTRESET], [1],
 		[Define if your getopt(3) defines and uses optreset])
 fi
-#l3541
+#l3575
 
 ##chl part
+AC_CHECK_TYPES([struct ifgroupreq])
+
 AC_CHECK_MEMBERS([struct stat.st_flags], , ,
 	[ #include <sys/types.h>
 	  #include <sys/stat.h> ]
@@ -2250,6 +2259,7 @@ AC_CHECK_MEMBERS([struct sockaddr_in6.sin6_len], , ,
 	  #include <netinet/in.h>
 	  #include <sys/socket.h> ]
 )
+
 AC_CHECK_MEMBERS([struct statfs.f_favail], , ,
 	[ #include <sys/vfs.h>
 	  #include <sys/statfs.h> ]
@@ -2257,7 +2267,7 @@ AC_CHECK_MEMBERS([struct statfs.f_favail], , ,
 ##chl part
 
 
-#l3781
+#l3820
 # Looking for programs, paths and files
 
 PRIVSEP_PATH=/var/empty
@@ -2271,9 +2281,9 @@ AC_ARG_WITH([privsep-path],
 	]
 )
 AC_SUBST([PRIVSEP_PATH])
-#l3793
+#l3832
 
-#l3816
+#l3855
 STRIP_OPT=-s
 AC_ARG_ENABLE([strip],
 	[  --disable-strip         Disable calling strip(1) on install],
@@ -2284,9 +2294,9 @@ AC_ARG_ENABLE([strip],
 	]
 )
 AC_SUBST([STRIP_OPT])
-#l3825
+#l3864
 
-#l3837
+#l3876
 dnl # --with-maildir=/path/to/mail gets top priority.
 dnl # if maildir is set in the platform case statement above we use that.
 dnl # Otherwise we run a program to get the dir from system headers.
@@ -2368,9 +2378,9 @@ AC_ARG_WITH([maildir],
 	fi
     ]
 ) # maildir
-#l3917
+#l3956
 
-#l3947
+#l3986
 # Options from here on. Some of these are preset by platform above
 AC_ARG_WITH([mantype],
 	[  --with-mantype=man|cat|doc  Set man page type],
@@ -2403,9 +2413,9 @@ else
 	mansubdir=$MANTYPE;
 fi
 AC_SUBST([mansubdir])
-#l3978
+#l4017
 
-#l4203
+#l4242
 # Whether to enable BSD auth support
 BSD_AUTH_MSG=no
 AC_ARG_WITH([bsd-auth],
@@ -2445,7 +2455,7 @@ AC_ARG_WITH([sock-dir],
 AC_DEFINE_UNQUOTED([SMTPD_SOCKDIR], ["$sockdir"], 
 	[Specify location of smtpd.sock])
 AC_SUBST([sockdir])
-#l4241
+#l4280
 
 
 CA_FILE=/etc/ssl/cert.pem
@@ -2459,6 +2469,28 @@ AC_ARG_WITH([ca-file],
 	]
 )
 AC_SUBST([CA_FILE])
+
+
+# Where to place spooler
+spooldir=/var/spool/smtpd
+AC_ARG_WITH([spooldir],
+	[  --with-spooldir=PATH		Specify location of spooler directory],
+	[
+		if test -n "$withval"  &&  test "x$withval" != "xno"  &&  \
+		    test "x${withval}" != "xyes"; then
+			spooldir=$withval
+			if test ! -d $spooldir ; then
+			AC_MSG_WARN([** no $spooldir directory on this system **])
+			fi
+		fi
+	]
+)
+
+AC_DEFINE_UNQUOTED([PATH_SPOOL], ["$spooldir"], 
+	[Specify location of spooler])
+AC_SUBST([spooldir])
+
+
 
 
 # Whether to enable *experimental* LDAP support
@@ -2475,6 +2507,34 @@ AC_ARG_WITH([experimental-ldap],
 )
 AM_CONDITIONAL([HAVE_LDAP], [test $EXPERIMENTAL_LDAP = yes])
 
+# Whether to enable *experimental* MySQL support
+EXPERIMENTAL_MYSQL=no
+AC_ARG_WITH([experimental-mysql],
+	[  --with-experimental-mysql	Enable experimental MySQL support],
+	[
+		if test "x$withval" != "xno" ; then
+			AC_DEFINE([HAVE_MYSQL], [1],
+				[Define if you have experimental MySQL support])
+			EXPERIMENTAL_MYSQL=yes
+		fi
+	]
+)
+AM_CONDITIONAL([HAVE_MYSQL], [test $EXPERIMENTAL_MYSQL = yes])
+
+# Whether to enable *experimental* PostgreSQL support
+EXPERIMENTAL_POSTGRES=no
+AC_ARG_WITH([experimental-postgres],
+	[  --with-experimental-postgres	Enable experimental PostgreSQL support],
+	[
+		if test "x$withval" != "xno" ; then
+			AC_DEFINE([HAVE_POSTGRES], [1],
+				[Define if you have experimental PostgreSQL support])
+			EXPERIMENTAL_POSTGRES=yes
+		fi
+	]
+)
+AM_CONDITIONAL([HAVE_POSTGRES], [test $EXPERIMENTAL_POSTGRES = yes])
+
 # Whether to enable *experimental* SQLite support
 EXPERIMENTAL_SQLITE=no
 AC_ARG_WITH([experimental-sqlite],
@@ -2482,17 +2542,17 @@ AC_ARG_WITH([experimental-sqlite],
 	[
 		if test "x$withval" != "xno" ; then
 			AC_DEFINE([HAVE_SQLITE], [1],
-				[Define if you have experimental SQLITE support])
+				[Define if you have experimental SQLite support])
 				AC_CHECK_HEADER([sqlite3.h],
 						[AC_DEFINE([HAVE_SQLITE3_H], [], [if you have the <sqlite3.h> header file]) ],
 						[AC_MSG_ERROR([*** sqlite3.h missing - please install first or check config.log ***])]
 						)
 
+				save_LIBS="$LIBS"
+				saved_CPPFLAGS="$CPPFLAGS"
+				saved_LDFLAGS="$LDFLAGS"
 				AC_CHECK_LIB([sqlite3], [sqlite3_open], ,
 					[
-						saved_CPPFLAGS="$CPPFLAGS"
-						saved_LDFLAGS="$LDFLAGS"
-						save_LIBS="$LIBS"
 						dnl Check default sqlite install dir
 						if test -n "${need_dash_r}"; then
 							LDFLAGS="-L/usr/local/lib -R/usr/local/lib ${saved_LDFLAGS}"
@@ -2508,6 +2568,9 @@ AC_ARG_WITH([experimental-sqlite],
 						)
 					]
 				)
+				CPPFLAGS="$saved_CPPFLAGS"
+				LDFLAGS="$saved_LDFLAGS"
+				LIBS="$save_LIBS"
 			EXPERIMENTAL_SQLITE=yes
 		fi
 	]
@@ -2518,7 +2581,7 @@ AM_CONDITIONAL([HAVE_SQLITE], [test $EXPERIMENTAL_SQLITE = yes])
 dnl AC_DEFINE([_GNU_SOURCE], [], [Enable GNU Extensions])
 
 
-#l4514
+#l4553
 dnl Adding -Werror to CFLAGS early prevents configure tests from running.
 dnl Add now.
 CFLAGS="$CFLAGS $werror_flags"
@@ -2530,11 +2593,12 @@ else
 fi
 AC_CHECK_DECL([BROKEN_GETADDRINFO],  [TEST_SSH_IPV6=no])
 AC_SUBST([TEST_SSH_IPV6], [$TEST_SSH_IPV6])
+AC_SUBST([UNSUPPORTED_ALGORITHMS], [$unsupported_algorithms])
 
 AC_EXEEXT
-#l4526
+#l4566
 
-##chl (still based on portable OpenSSH's configure.ac)
+##chl (still based on 5.4.1p1 OpenSSH's configure.ac)
 AC_MSG_CHECKING([if inet_net_pton will link])
 AC_LINK_IFELSE([AC_LANG_PROGRAM([[
 #include <sys/types.h>
@@ -2740,23 +2804,105 @@ AC_LINK_IFELSE(
 	]
 )
 
-AC_SEARCH_LIBS([bufferevent_openssl_socket_new], [event event_openssl], [])
+# Search for libdb
+AC_CHECK_HEADER(db_185.h, [AC_DEFINE([HAVE_DB_185_H], [], [if you have the <db_185.h> header file]) ] , [
+AC_CHECK_HEADER(db.h,     [AC_DEFINE([HAVE_DB_H],     [], [if you have the <db.h> header file])     ] , [
+AC_CHECK_HEADER(db1/db.h, [AC_DEFINE([HAVE_DB1_DB_H], [], [if you have the <db1/db.h> header file]) ] , [
+				AC_MSG_ERROR([*** Can't find Berkeley DB headers (see config.log for details) ***])
+])])])
 
 
-LIBS="$LIBS ${SSHDLIBS}"
+save_LIBS="$LIBS"
+DB_LIB=
+
+for libdb in db db1 c; do
+    AC_CHECK_LIB($libdb, dbopen,       [ DB_LIB="$libdb"; break; ], 
+    AC_CHECK_LIB($libdb, __db185_open, [ DB_LIB="$libdb"; break; ]))
+done
+
+if test -z "$DB_LIB" ; then
+    AC_MSG_ERROR([Berkeley DB not found or not built with --enable-185])
+fi
+
+LIBS="$LIBS -l$DB_LIB"
+
+LIBS="$LIBS ${SMTPDLIBS}"
 ##end of chl
+
+AC_MSG_CHECKING([if RES_USE_EDNS0 is defined in resolv.h])
+AC_EGREP_CPP(HAVE_RES_USE_EDNS0, [
+#include <sys/types.h>
+#include <netinet/in.h>
+#include <arpa/nameser.h>
+#include <resolv.h>
+#ifdef RES_USE_EDNS0
+HAVE_RES_USE_EDNS0
+#endif
+], [
+   AC_MSG_RESULT([yes])
+], [
+   AC_MSG_RESULT([no])
+   AC_DEFINE([RES_USE_EDNS0], [0], [Defined to 0 if RES_USE_EDNS0 isn't a supported resolver flag.])
+])
+
+
+AC_MSG_CHECKING([if RES_USE_DNSSEC is defined in resolv.h])
+AC_EGREP_CPP(HAVE_RES_USE_DNSSEC, [
+#include <sys/types.h>
+#include <netinet/in.h>
+#include <arpa/nameser.h>
+#include <resolv.h>
+#ifdef RES_USE_DNSSEC
+HAVE_RES_USE_DNSSEC
+#endif
+], [
+   AC_MSG_RESULT([yes])
+], [
+   AC_MSG_RESULT([no])
+   AC_DEFINE([RES_USE_DNSSEC], [0], [Defined to 0 if RES_USE_DNSSEC isn't a supported resolver flag.])
+])
+
+
+use_mailwrapper=0
+AC_ARG_WITH([mailwrapper],
+	[  --with-mailwrapper		Install smtpctl and makemap utilities in libexec],
+	[ if test "x$withval" = "xyes"; then
+	     use_mailwrapper=1
+	  fi
+	]
+)
+AM_CONDITIONAL([HAVE_MAILWRAPPER], [test $use_mailwrapper = 1])
 
 AC_CONFIG_FILES([Makefile
 		openbsd-compat/Makefile
-		smtpd/Makefile
+		mk/Makefile
+		mk/smtpd/Makefile
+		mk/smtpctl/Makefile
+		mk/makemap/Makefile
+		mk/backends/Makefile
+		mk/backends/queue-null/Makefile
+		mk/backends/queue-ram/Makefile
+		mk/backends/queue-stub/Makefile
+		mk/backends/scheduler-ram/Makefile
+		mk/backends/scheduler-stub/Makefile
+		mk/backends/table-ldap/Makefile
+		mk/backends/table-mysql/Makefile
+		mk/backends/table-passwd/Makefile
+		mk/backends/table-postgres/Makefile
+		mk/backends/table-sqlite/Makefile
+		mk/backends/table-stub/Makefile
+		mk/filters/Makefile
+		mk/filters/dnsbl/Makefile
+		mk/filters/stub/Makefile
+		mk/filters/trace/Makefile
+		mk/filters/monkey/Makefile
 		contrib/Makefile
 		contrib/libexec/Makefile
 		contrib/libexec/mail.local/Makefile
-		regress/Makefile
-		regress/bin/Makefile
+		contrib/libexec/encrypt/Makefile
 		])
 
-#l4530
+#l4570
 AC_OUTPUT
 
 # Print summary of options
@@ -2766,12 +2912,13 @@ A=`eval echo ${prefix}` ; A=`eval echo ${A}`
 B=`eval echo ${bindir}` ; B=`eval echo ${B}`
 C=`eval echo ${sbindir}` ; C=`eval echo ${C}`
 D=`eval echo ${sysconfdir}` ; D=`eval echo ${D}`
-E=`eval echo ${libexecdir}/mail.local` ; E=`eval echo ${E}`
-F=`eval echo ${mandir}/${mansubdir}X` ; F=`eval echo ${F}`
-G=`eval echo ${sockdir}` ; G=`eval echo ${G}`
-H=`eval echo ${PRIVSEP_PATH}` ; H=`eval echo ${H}`
-I=`eval echo ${user_path}` ; I=`eval echo ${I}`
-J=`eval echo ${superuser_path}` ; J=`eval echo ${J}`
+E=`eval echo ${libexecdir}/${PACKAGE}/mail.local` ; E=`eval echo ${E}`
+F=`eval echo ${libexecdir}/${PACKAGE}/encrypt` ; F=`eval echo ${F}`
+G=`eval echo ${mandir}/${mansubdir}X` ; G=`eval echo ${G}`
+H=`eval echo ${sockdir}` ; H=`eval echo ${H}`
+I=`eval echo ${PRIVSEP_PATH}` ; I=`eval echo ${I}`
+J=`eval echo ${user_path}` ; J=`eval echo ${J}`
+K=`eval echo ${superuser_path}` ; K=`eval echo ${K}`
 
 echo ""
 echo "OpenSMTPD has been configured with the following options:"
@@ -2779,35 +2926,25 @@ echo "                     User binaries: $B"
 echo "                   System binaries: $C"
 echo "               Configuration files: $D"
 echo "                mail.local program: $E"
-echo "                      Manual pages: $F"
-echo "                    smtpd.sock dir: $G"
-echo "  Privilege separation chroot path: $H"
+echo "                   encrypt program: $F"
+echo "                      Manual pages: $G"
+echo "                    smtpd.sock dir: $H"
+echo "  Privilege separation chroot path: $I"
 if test "x$external_path_file" = "x/etc/login.conf" ; then
 echo "   At runtime, smtpd will use the path defined in $external_path_file"
 echo "   Make sure the path to scp is present, otherwise scp will not work"
 else
-echo "           smtpd default user PATH: $I"
+echo "           smtpd default user PATH: $J"
 	if test ! -z "$external_path_file"; then
 echo "   (If PATH is set in $external_path_file it will be used instead. If"
 echo "   used, ensure the path to scp is present, otherwise scp will not work.)"
 	fi
 fi
 if test ! -z "$superuser_path" ; then
-echo "         smtpd superuser user PATH: $J"
+echo "         smtpd superuser user PATH: $K"
 fi
 echo "                    Manpage format: $MANTYPE"
 echo "                       PAM support: $PAM_MSG"
-#echo "                   OSF SIA support: $SIA_MSG"
-#echo "                 KerberosV support: $KRB5_MSG"
-#echo "                   SELinux support: $SELINUX_MSG"
-#echo "                 Smartcard support: $SCARD_MSG"
-#echo "                     S/KEY support: $SKEY_MSG"
-#echo "              TCP Wrappers support: $TCPW_MSG"
-#echo "              MD5 password support: $MD5_MSG"
-#echo "                   libedit support: $LIBEDIT_MSG"
-#echo "  Solaris process contract support: $SPC_MSG"
-#echo "       IP address in \$DISPLAY hack: $DISPLAY_HACK_MSG"
-#echo "           Translate v4 in v6 hack: $IPV4_IN6_HACK_MSG"
 echo "                  BSD Auth support: $BSD_AUTH_MSG"
 echo "              Random number source: $RAND_MSG"
 
@@ -2833,19 +2970,3 @@ if test "x$PAM_MSG" = "xyes" ; then
 #	echo "subdirectory"
 	echo ""
 fi
-
-#if test ! -z "$NO_PEERCHECK" ; then
-#	echo "WARNING: the operating system that you are using does not"
-#	echo "appear to support getpeereid(), getpeerucred() or the"
-#	echo "SO_PEERCRED getsockopt() option. These facilities are used to"
-#	echo "enforce security checks to prevent unauthorised connections to"
-#	echo "ssh-agent. Their absence increases the risk that a malicious"
-#	echo "user can connect to your agent."
-#	echo ""
-#fi
-
-if test "$AUDIT_MODULE" = "bsm" ; then
-	echo "WARNING: BSM audit support is currently considered EXPERIMENTAL."
-	echo "See the Solaris section in README.platform for details."
-fi
-#l4463

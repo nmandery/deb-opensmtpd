@@ -92,6 +92,13 @@ enum
 #define MAXLOGNAME      LOGIN_NAME_MAX
 #endif
 
+#ifndef UID_MAX
+#define	UID_MAX	UINT_MAX
+#endif
+#ifndef GID_MAX
+#define	GID_MAX	UINT_MAX
+#endif
+
 #ifndef STDIN_FILENO
 # define STDIN_FILENO    0
 #endif
@@ -365,18 +372,18 @@ struct winsize {
 # define _PATH_DEVNULL "/dev/null"
 #endif
 
-#ifndef MAIL_DIRECTORY
-# define MAIL_DIRECTORY "/var/spool/mail"
+/* user may have set a different path */
+#if defined(_PATH_MAILDIR) && defined(MAIL_DIRECTORY)
+# define _PATH_MAILDIR MAILDIR
+#endif /* defined(_PATH_MAILDIR) && defined(MAIL_DIRECTORY) */
+
+#ifdef MAIL_DIRECTORY
+# define _PATH_MAILDIR MAIL_DIRECTORY
 #endif
 
-/* remove it
-#ifndef MAILDIR
-# define MAILDIR MAIL_DIRECTORY
-#endif */
-
-#if !defined(_PATH_MAILDIR) && defined(MAILDIR)
-# define _PATH_MAILDIR MAILDIR
-#endif /* !defined(_PATH_MAILDIR) && defined(MAILDIR) */
+#ifdef MAILDIR
+# undef MAILDIR
+#endif
 
 #ifndef _PATH_NOLOGIN
 # define _PATH_NOLOGIN "/etc/nologin"

@@ -1,4 +1,4 @@
-/*	$OpenBSD: getnetnamadr.c,v 1.4 2013/04/04 17:50:19 eric Exp $	*/
+/*	$OpenBSD: getnetnamadr.c,v 1.6 2013/07/12 14:36:22 eric Exp $	*/
 /*
  * Copyright (c) 2012 Eric Faurot <eric@openbsd.org>
  *
@@ -83,13 +83,15 @@ getnetbyname(const char *name)
 	struct async	*as;
 	struct async_res ar;
 
+	res_init();
+
 	as = getnetbyname_async(name, NULL);
 	if (as == NULL) {
 		h_errno = NETDB_INTERNAL;
 		return (NULL);
 	}
 
-	async_run_sync(as, &ar);
+	asr_async_run_sync(as, &ar);
 
 	errno = ar.ar_errno;
 	h_errno = ar.ar_h_errno;
@@ -108,13 +110,15 @@ getnetbyaddr(in_addr_t net, int type)
 	struct async	*as;
 	struct async_res ar;
 
+	res_init();
+
 	as = getnetbyaddr_async(net, type, NULL);
 	if (as == NULL) {
 		h_errno = NETDB_INTERNAL;
 		return (NULL);
 	}
 
-	async_run_sync(as, &ar);
+	asr_async_run_sync(as, &ar);
 
 	errno = ar.ar_errno;
 	h_errno = ar.ar_h_errno;

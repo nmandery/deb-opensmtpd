@@ -20,48 +20,54 @@
  
 #include <sys/types.h>
 
-#include <getopt.h>
 #include <inttypes.h>
 #include <stdio.h>
-        
+#include <unistd.h>
+
 #include "smtpd-defines.h"
 #include "smtpd-api.h"
 #include "log.h"
 
 static void
-on_connect(uint64_t id, uint64_t qid, struct filter_connect *conn)
+on_connect(uint64_t id, struct filter_connect *conn)
 {
-	filter_api_accept(qid);
+	filter_api_accept(id);
 }
 
 static void
-on_helo(uint64_t id, uint64_t qid, const char *helo)
+on_helo(uint64_t id, const char *helo)
 {
-	filter_api_accept(qid);
+	filter_api_accept(id);
 }
 
 static void
-on_mail(uint64_t id, uint64_t qid, struct mailaddr *mail)
+on_mail(uint64_t id, struct mailaddr *mail)
 {
-	filter_api_accept(qid);
+	filter_api_accept(id);
 }
 
 static void
-on_rcpt(uint64_t id, uint64_t qid, struct mailaddr *rcpt)
+on_rcpt(uint64_t id, struct mailaddr *rcpt)
 {
-	filter_api_accept(qid);
+	filter_api_accept(id);
 }
 
 static void
-on_data(uint64_t id, uint64_t qid)
+on_data(uint64_t id)
 {
-	filter_api_accept(qid);
+	filter_api_accept(id);
 }
 
 static void
-on_eom(uint64_t id, uint64_t qid)
+on_eom(uint64_t id)
 {
-	filter_api_accept(qid);
+	filter_api_accept(id);
+}
+
+static void
+on_dataline(uint64_t id, const char *line)
+{
+	filter_api_writeln(id, line);
 }
 
 int
@@ -90,6 +96,7 @@ main(int argc, char **argv)
 	filter_api_on_rcpt(on_rcpt);
 	filter_api_on_data(on_data);
 	filter_api_on_eom(on_eom);
+	filter_api_on_dataline(on_dataline);
 	filter_api_loop();
 
 	log_debug("debug: filter-stub: exiting");
