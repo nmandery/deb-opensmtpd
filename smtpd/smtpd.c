@@ -67,6 +67,9 @@
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
+#ifdef HAVE_UTIL_H
+#include <util.h>
+#endif
 
 #include <openssl/ssl.h>
 
@@ -74,9 +77,11 @@
 #include "log.h"
 #include "ssl.h"
 
+extern char *__progname;
+
 static void parent_imsg(struct mproc *, struct imsg *);
 static void usage(void);
-static void parent_shutdown(void);
+static void parent_shutdown(int);
 static void parent_send_config(int, short, void *);
 static void parent_send_config_lka(void);
 static void parent_send_config_mfa(void);
@@ -97,7 +102,7 @@ static int	offline_enqueue(char *);
 static void	purge_task(int, short, void *);
 static void	log_imsg(int, int, struct imsg *);
 static int	parent_auth_user(const char *, const char *);
-static void	load_ssl_trees(void);
+static void	load_ssl_tree(void);
 
 enum child_type {
 	CHILD_DAEMON,
@@ -158,55 +163,13 @@ int	profiling = 0;
 int	verbose = 0;
 int	debug = 0;
 int	foreground = 0;
+int	control_socket = -1;
 
 struct tree	 children;
 
 /* Saved arguments to main(). */
 char **saved_argv;
 int saved_argc;
-
-#ifdef VALGRIND
-void clean_setproctitle(void)
-{
-	int i;
-
-	log_debug("clean_setproctitle");
-
-	for (i = 0; i < saved_argc; i++)
-		free(saved_argv[i]);
-
-	free(saved_argv);
-
-#if defined(SPT_TYPE) && SPT_TYPE == SPT_REUSEARGV
-	for (i = 0; environ[i] != NULL; i++)
-		free(environ[i]);
-	free(environ);
-#endif
-}
-
-void
-child_free(void)
-{
-	void		*iter;
-	struct child	*child;
-
-	iter = NULL;
-	while (tree_iter(&children, &iter, NULL, (void**)&child))
-		if (child) {
-			free(child);
-			child = NULL;
-		}
-}
-
-void
-free_all(void)
-{
-	child_free();
-	purge_config(PURGE_EVERYTHING);
-	clean_setproctitle();
-	EVP_cleanup();
-}
-#endif /* VALGRIND */
 
 static void
 parent_imsg(struct mproc *p, struct imsg *imsg)
@@ -349,7 +312,7 @@ parent_imsg(struct mproc *p, struct imsg *imsg)
 			return;
 
 		case IMSG_CTL_SHUTDOWN:
-			parent_shutdown();
+			parent_shutdown(0);
 			return;
 		}
 	}
@@ -368,7 +331,7 @@ usage(void)
 }
 
 static void
-parent_shutdown(void)
+parent_shutdown(int ret)
 {
 	void		*iter;
 	struct child	*child;
@@ -383,17 +346,10 @@ parent_shutdown(void)
 		pid = waitpid(WAIT_MYPGRP, NULL, 0);
 	} while (pid != -1 || (pid == -1 && errno == EINTR));
 
-#ifdef VALGRIND
-	child_free();
-	purge_config(PURGE_EVERYTHING);
-	free_pipes();
-	free_peers();
-	clean_setproctitle();
-	event_base_free(NULL);
-#endif
+	unlink(SMTPD_SOCKET);
 
 	log_warnx("warn: parent terminating");
-	exit(0);
+	exit(ret);
 }
 
 static void
@@ -418,8 +374,6 @@ parent_send_config_smtp(void)
 	m_compose(p_smtp, IMSG_CONF_START, 0, 0, -1, NULL, 0);
 
 	while (dict_iter(env->sc_ssl_dict, &iter, NULL, (void **)&s)) {
-		if (!(s->flags & F_SCERT))
-			continue;
 		iov[0].iov_base = s;
 		iov[0].iov_len = sizeof(*s);
 		iov[1].iov_base = s->ssl_cert;
@@ -488,8 +442,6 @@ parent_send_config_lka()
 
 	iter_dict = NULL;
 	while (dict_iter(env->sc_ssl_dict, &iter_dict, NULL, (void **)&s)) {
-		if (!(s->flags & F_SCERT))
-			continue;
 		iov[0].iov_base = s;
 		iov[0].iov_len = sizeof(*s);
 		iov[1].iov_base = s->ssl_cert;
@@ -536,6 +488,12 @@ parent_send_config_lka()
 			    0, 0, -1,
 			    &r->r_senders->t_name,
 			    sizeof(r->r_senders->t_name));
+		}
+		if (r->r_recipients) {
+			m_compose(p_lka, IMSG_CONF_RULE_RECIPIENT,
+			    0, 0, -1,
+			    &r->r_recipients->t_name,
+			    sizeof(r->r_recipients->t_name));
 		}
 		if (r->r_destination) {
 			m_compose(p_lka, IMSG_CONF_RULE_DESTINATION,
@@ -653,7 +611,7 @@ parent_sig_handler(int sig, short event, void *p)
 		} while (pid > 0 || (pid == -1 && errno == EINTR));
 
 		if (die)
-			parent_shutdown();
+			parent_shutdown(1);
 		break;
 	default:
 		fatalx("smtpd: unexpected signal");
@@ -672,7 +630,8 @@ main(int argc, char *argv[])
 	struct event	 ev_sigchld;
 	struct event	 ev_sighup;
 	struct timeval	 tv;
-	struct passwd	*pwq;
+
+	__progname = ssh_get_progname(argv[0]);
 
 	/* Save argv. Duplicate so setproctitle emulation doesn't clobber it */
 	saved_argc = argc;
@@ -735,17 +694,22 @@ main(int argc, char *argv[])
 				verbose |= TRACE_IO;
 			else if (!strcmp(optarg, "smtp"))
 				verbose |= TRACE_SMTP;
-			else if (!strcmp(optarg, "mfa"))
+			else if (!strcmp(optarg, "mfa") ||
+			    !strcmp(optarg, "filter") ||
+			    !strcmp(optarg, "filters"))
 				verbose |= TRACE_MFA;
-			else if (!strcmp(optarg, "mta"))
+			else if (!strcmp(optarg, "mta") ||
+			    !strcmp(optarg, "transfer"))
 				verbose |= TRACE_MTA;
-			else if (!strcmp(optarg, "bounce"))
+			else if (!strcmp(optarg, "bounce") ||
+			    !strcmp(optarg, "bounces"))
 				verbose |= TRACE_BOUNCE;
 			else if (!strcmp(optarg, "scheduler"))
 				verbose |= TRACE_SCHEDULER;
 			else if (!strcmp(optarg, "lookup"))
 				verbose |= TRACE_LOOKUP;
-			else if (!strcmp(optarg, "stat"))
+			else if (!strcmp(optarg, "stat") ||
+			    !strcmp(optarg, "stats"))
 				verbose |= TRACE_STAT;
 			else if (!strcmp(optarg, "rules"))
 				verbose |= TRACE_RULES;
@@ -753,7 +717,8 @@ main(int argc, char *argv[])
 				verbose |= TRACE_MPROC;
 			else if (!strcmp(optarg, "expand"))
 				verbose |= TRACE_EXPAND;
-			else if (!strcmp(optarg, "tables"))
+			else if (!strcmp(optarg, "table") ||
+			    !strcmp(optarg, "tables"))
 				verbose |= TRACE_TABLES;
 			else if (!strcmp(optarg, "queue"))
 				verbose |= TRACE_QUEUE;
@@ -803,7 +768,7 @@ main(int argc, char *argv[])
 		errx(1, "config file exceeds SMTPD_MAXPATHLEN");
 
 	if (env->sc_opts & SMTPD_OPT_NOACTION) {
-		load_ssl_trees();
+		load_ssl_tree();
 		fprintf(stderr, "configuration OK\n");
 		exit(0);
 	}
@@ -814,32 +779,8 @@ main(int argc, char *argv[])
 	if (geteuid())
 		errx(1, "need root privileges");
 
-	if ((env->sc_pw = getpwnam(SMTPD_USER)) == NULL)
-		errx(1, "unknown user %s", SMTPD_USER);
-	if ((env->sc_pw = pw_dup(env->sc_pw)) == NULL)
-		err(1, NULL);
-
-	env->sc_pwqueue = getpwnam(SMTPD_QUEUE_USER);
-	if (env->sc_pwqueue)
-		pwq = env->sc_pwqueue = pw_dup(env->sc_pwqueue);
-	else
-		pwq = env->sc_pwqueue = pw_dup(env->sc_pw);
-	if (env->sc_pwqueue == NULL)
-		err(1, NULL);
-
-	if (ckdir(PATH_SPOOL, 0711, 0, 0, 1) == 0)
-		errx(1, "error in spool directory setup");
-	if (ckdir(PATH_SPOOL PATH_OFFLINE, 01777, 0, 0, 1) == 0)
-		errx(1, "error in offline directory setup");
-	if (ckdir(PATH_SPOOL PATH_PURGE, 0700, pwq->pw_uid, 0, 1) == 0)
-		errx(1, "error in purge directory setup");
-	if (ckdir(PATH_SPOOL PATH_TEMPORARY, 0700, pwq->pw_uid, 0, 1) == 0)
-		errx(1, "error in purge directory setup");
-
-	mvpurge(PATH_SPOOL PATH_INCOMING, PATH_SPOOL PATH_PURGE);
-
-	if (ckdir(PATH_SPOOL PATH_INCOMING, 0700, pwq->pw_uid, 0, 1) == 0)
-		errx(1, "error in incoming directory setup");
+	/* the control socket ensures that only one smtpd instance is running */
+	control_socket = control_create_socket();
 
 	if (!queue_init(backend_queue, 1))
 		errx(1, "could not initialize queue backend");
@@ -853,6 +794,8 @@ main(int argc, char *argv[])
 
 	log_init(foreground);
 	log_verbose(verbose);
+
+	load_ssl_tree();
 
 	log_info("info: %s %s starting", SMTPD_NAME, SMTPD_VERSION);
 
@@ -875,8 +818,6 @@ main(int argc, char *argv[])
 	if (env->sc_hostname[0] == '\0')
 		errx(1, "machine does not have a hostname set");
 	env->sc_uptime = time(NULL);
-
-	load_ssl_trees();
 
 	fork_peers();
 
@@ -920,6 +861,9 @@ main(int argc, char *argv[])
 	purge_timeout.tv_usec = 0;
 	evtimer_add(&purge_ev, &purge_timeout);
 
+	if (pidfile(NULL) < 0)
+		err(1, "pidfile");
+
 	log_debug("libevent %s (%s)", event_get_version(), event_get_method());
 
 	if (event_dispatch() < 0)
@@ -929,36 +873,32 @@ main(int argc, char *argv[])
 }
 
 static void
-load_ssl_trees(void)
+load_ssl_tree(void)
 {
-	struct listener	*l;
 	struct ssl	*ssl;
-	struct rule	*r;
+	void		*iter_dict;
+	const char	*k;
 
-	log_debug("debug: init server-ssl tree");
-	TAILQ_FOREACH(l, env->sc_listeners, entry) {
-		if (!(l->flags & F_SSL))
-			continue;
-		ssl = NULL;
-		if (! ssl_load_certfile(&ssl, SMTPD_CONFDIR "/certs",
-			l->ssl_cert_name, F_SCERT))
-			errx(1, "cannot load certificate: %s",
-			    l->ssl_cert_name);
-		dict_set(env->sc_ssl_dict, ssl->ssl_name, ssl);
-	}
+	log_debug("debug: init ssl-tree");
+	iter_dict = NULL;
+	while (dict_iter(env->sc_ssl_dict, &iter_dict, &k, (void **)&ssl)) {
+		log_debug("info: loading pki information for %s", k);
+		if (ssl->ssl_cert_file == NULL)
+			fatalx("load_ssl_tree: missing certificate file");
+		if (ssl->ssl_key_file == NULL)
+			fatalx("load_ssl_tree: missing key file");
 
-	log_debug("debug: init client-ssl tree");
-	TAILQ_FOREACH(r, env->sc_rules, r_entry) {
-		if (r->r_action != A_RELAY && r->r_action != A_RELAYVIA)
-			continue;
-		if (! r->r_value.relayhost.cert[0])
-			continue;
-		ssl = NULL;
-		if (! ssl_load_certfile(&ssl, SMTPD_CONFDIR "/certs",
-			r->r_value.relayhost.cert, F_CCERT))
-			errx(1, "cannot load certificate: %s",
-			    r->r_value.relayhost.cert);
-		dict_set(env->sc_ssl_dict, ssl->ssl_name, ssl);
+		if (! ssl_load_certificate(ssl, ssl->ssl_cert_file))
+			fatalx("load_ssl_tree: failed to load certificate file");
+		if (! ssl_load_keyfile(ssl, ssl->ssl_key_file, k))
+			fatalx("load_ssl_tree: failed to load key file");
+
+		if (ssl->ssl_ca_file)
+			if (! ssl_load_cafile(ssl, ssl->ssl_ca_file))
+				fatalx("load_ssl_tree: failed to load CA file");
+		if (ssl->ssl_dhparams_file)
+			if (! ssl_load_dhparams(ssl, ssl->ssl_dhparams_file))
+				fatalx("load_ssl_tree: failed to load dhparams file");
 	}
 }
 
@@ -984,14 +924,28 @@ fork_peers(void)
 
 	init_pipes();
 
+	child_add(queue(), CHILD_DAEMON, proc_title(PROC_QUEUE));
 	child_add(control(), CHILD_DAEMON, proc_title(PROC_CONTROL));
 	child_add(lka(), CHILD_DAEMON, proc_title(PROC_LKA));
 	child_add(mda(), CHILD_DAEMON, proc_title(PROC_MDA));
 	child_add(mfa(), CHILD_DAEMON, proc_title(PROC_MFA));
 	child_add(mta(), CHILD_DAEMON, proc_title(PROC_MTA));
-	child_add(queue(), CHILD_DAEMON, proc_title(PROC_QUEUE));
 	child_add(scheduler(), CHILD_DAEMON, proc_title(PROC_SCHEDULER));
 	child_add(smtp(), CHILD_DAEMON, proc_title(PROC_SMTP));
+
+	post_fork(PROC_PARENT);
+}
+
+void
+post_fork(int proc)
+{
+	if (proc != PROC_QUEUE && env->sc_queue_key)
+		memset(env->sc_queue_key, 0, strlen(env->sc_queue_key));
+
+	if (proc != PROC_CONTROL) {
+		close(control_socket);
+		control_socket = -1;
+	}
 }
 
 struct child *
@@ -1014,6 +968,7 @@ child_add(pid_t pid, int type, const char *title)
 static void
 purge_task(int fd, short ev, void *arg)
 {
+	struct passwd	*pw;
 	DIR		*d;
 	int		 n;
 	uid_t		 uid;
@@ -1035,20 +990,19 @@ purge_task(int fd, short ev, void *arg)
 				log_warn("warn: purge_task: fork");
 				break;
 			case 0:
+				if ((pw = getpwnam(SMTPD_USER)) == NULL)
+					fatalx("unknown user " SMTPD_USER);
 				if (chroot(PATH_SPOOL PATH_PURGE) == -1)
 					fatal("smtpd: chroot");
 				if (chdir("/") == -1)
 					fatal("smtpd: chdir");
-				uid = env->sc_pw->pw_uid;
-				gid = env->sc_pw->pw_gid;
+				uid = pw->pw_uid;
+				gid = pw->pw_gid;
 				if (setgroups(1, &gid) ||
 				    setresgid(gid, gid, gid) ||
 				    setresuid(uid, uid, uid))
 					fatal("smtpd: cannot drop privileges");
 				rmtree("/", 1);
-#ifdef VALGRIND
-				free_all();
-#endif
 				_exit(0);
 				break;
 			default:
@@ -1067,7 +1021,7 @@ forkmda(struct mproc *p, uint64_t id, struct deliver *deliver)
 	struct delivery_backend	*db;
 	struct child	*child;
 	pid_t		 pid;
-	int		 n, allout, pipefd[2];
+	int		 allout, pipefd[2];
 	mode_t		 omode;
 
 	log_debug("debug: smtpd: forking mda for session %016"PRIx64
@@ -1092,7 +1046,7 @@ forkmda(struct mproc *p, uint64_t id, struct deliver *deliver)
 		fatal("smtpd: forkmda: cannot lower privileges");
 
 	if (pipe(pipefd) < 0) {
-		n = snprintf(ebuf, sizeof ebuf, "pipe: %s", strerror(errno));
+		snprintf(ebuf, sizeof ebuf, "pipe: %s", strerror(errno));
 		if (seteuid(0) < 0)
 			fatal("smtpd: forkmda: cannot restore privileges");
 		m_create(p_mda, IMSG_MDA_DONE, 0, 0, -1);
@@ -1108,7 +1062,7 @@ forkmda(struct mproc *p, uint64_t id, struct deliver *deliver)
 	allout = mkstemp(sfn);
 	umask(omode);
 	if (allout < 0) {
-		n = snprintf(ebuf, sizeof ebuf, "mkstemp: %s", strerror(errno));
+		snprintf(ebuf, sizeof ebuf, "mkstemp: %s", strerror(errno));
 		if (seteuid(0) < 0)
 			fatal("smtpd: forkmda: cannot restore privileges");
 		m_create(p_mda, IMSG_MDA_DONE, 0, 0, -1);
@@ -1123,7 +1077,7 @@ forkmda(struct mproc *p, uint64_t id, struct deliver *deliver)
 
 	pid = fork();
 	if (pid < 0) {
-		n = snprintf(ebuf, sizeof ebuf, "fork: %s", strerror(errno));
+		snprintf(ebuf, sizeof ebuf, "fork: %s", strerror(errno));
 		if (seteuid(0) < 0)
 			fatal("smtpd: forkmda: cannot restore privileges");
 		m_create(p_mda, IMSG_MDA_DONE, 0, 0, -1);
@@ -1315,10 +1269,6 @@ offline_enqueue(char *name)
 		envp[1] = (char *)NULL;
 		environ = envp;
 
-#ifdef VALGRIND
-		free_all();
-#endif
-
 		execvp(PATH_SMTPCTL, args.list);
 		_exit(1);
 	}
@@ -1368,12 +1318,24 @@ offline_done(void)
 static int
 parent_forward_open(char *username, char *directory, uid_t uid, gid_t gid)
 {
-	char pathname[SMTPD_MAXPATHLEN];
-	int	fd;
+	char		pathname[SMTPD_MAXPATHLEN];
+	int		fd;
+	struct stat	sb;
 
 	if (! bsnprintf(pathname, sizeof (pathname), "%s/.forward",
 		directory))
 		fatal("smtpd: parent_forward_open: snprintf");
+
+	if (stat(directory, &sb) < 0) {
+		log_warn("warn: smtpd: parent_forward_open: %s", directory);
+		return -1;
+	}
+	if (sb.st_mode & S_ISVTX) {
+		log_warnx("warn: smtpd: parent_forward_open: %s is sticky",
+		    directory);
+		errno = EAGAIN;
+		return -1;
+	}
 
 	do {
 		fd = open(pathname, O_RDONLY);
@@ -1419,12 +1381,12 @@ imsg_dispatch(struct mproc *p, struct imsg *imsg)
 		clock_gettime(CLOCK_MONOTONIC, &t1);
 		timespecsub(&t1, &t0, &dt);
 
-		log_debug("profile-imsg: %s %s %s %i %li.%06li",
+		log_debug("profile-imsg: %s %s %s %d %lld.%06ld",
 		    proc_name(smtpd_process),
 		    proc_name(p->proc),
 		    imsg_to_str(imsg->hdr.type),
 		    (int)imsg->hdr.len,
-		    dt.tv_sec * 1000000 + dt.tv_nsec / 1000000,
+		    (long long)dt.tv_sec * 1000000 + dt.tv_nsec / 1000000,
 		    dt.tv_nsec % 1000000);
 
 		if (profiling & PROFILE_TOSTAT) {
@@ -1437,7 +1399,8 @@ imsg_dispatch(struct mproc *p, struct imsg *imsg)
 				"profiling.imsg.%s.%s.%s",
 				proc_name(smtpd_process),
 				proc_name(p->proc),
-				imsg_to_str(imsg->hdr.type)));
+				imsg_to_str(imsg->hdr.type)))
+				return;
 			stat_set(key, stat_timespec(&dt));
 		}
 	}
@@ -1447,11 +1410,11 @@ static void
 log_imsg(int to, int from, struct imsg *imsg)
 {
 
-	if (to == PROC_CONTROL)
+	if (to == PROC_CONTROL && imsg->hdr.type == IMSG_STAT_SET)
 		return;
 
 	if (imsg->fd != -1)
-		log_trace(TRACE_IMSG, "imsg: %s <- %s: %s (len=%zu, fd=%i)",
+		log_trace(TRACE_IMSG, "imsg: %s <- %s: %s (len=%zu, fd=%d)",
 		    proc_name(to),
 		    proc_name(from),
 		    imsg_to_str(imsg->hdr.type),
@@ -1537,12 +1500,15 @@ imsg_to_str(int type)
 	CASE(IMSG_CTL_FAIL);
 	CASE(IMSG_CTL_SHUTDOWN);
 	CASE(IMSG_CTL_VERBOSE);
+	CASE(IMSG_CTL_PAUSE_EVP);
 	CASE(IMSG_CTL_PAUSE_MDA);
 	CASE(IMSG_CTL_PAUSE_MTA);
 	CASE(IMSG_CTL_PAUSE_SMTP);
+	CASE(IMSG_CTL_RESUME_EVP);
 	CASE(IMSG_CTL_RESUME_MDA);
 	CASE(IMSG_CTL_RESUME_MTA);
 	CASE(IMSG_CTL_RESUME_SMTP);
+	CASE(IMSG_CTL_RESUME_ROUTE);
 	CASE(IMSG_CTL_LIST_MESSAGES);
 	CASE(IMSG_CTL_LIST_ENVELOPES);
 	CASE(IMSG_CTL_REMOVE);
@@ -1553,6 +1519,11 @@ imsg_to_str(int type)
 	CASE(IMSG_CTL_PROFILE);
 	CASE(IMSG_CTL_UNPROFILE);
 
+	CASE(IMSG_CTL_MTA_SHOW_HOSTS);
+	CASE(IMSG_CTL_MTA_SHOW_RELAYS);
+	CASE(IMSG_CTL_MTA_SHOW_ROUTES);
+	CASE(IMSG_CTL_MTA_SHOW_HOSTSTATS);
+
 	CASE(IMSG_CONF_START);
 	CASE(IMSG_CONF_SSL);
 	CASE(IMSG_CONF_LISTENER);
@@ -1562,6 +1533,7 @@ imsg_to_str(int type)
 	CASE(IMSG_CONF_RULE_SOURCE);
 	CASE(IMSG_CONF_RULE_SENDER);
 	CASE(IMSG_CONF_RULE_DESTINATION);
+	CASE(IMSG_CONF_RULE_RECIPIENT);
 	CASE(IMSG_CONF_RULE_MAPPING);
 	CASE(IMSG_CONF_RULE_USERS);
 	CASE(IMSG_CONF_FILTER);
@@ -1583,6 +1555,8 @@ imsg_to_str(int type)
 	CASE(IMSG_DELIVERY_TEMPFAIL);
 	CASE(IMSG_DELIVERY_PERMFAIL);
 	CASE(IMSG_DELIVERY_LOOP);
+	CASE(IMSG_DELIVERY_HOLD);
+	CASE(IMSG_DELIVERY_RELEASE);
 
 	CASE(IMSG_BOUNCE_INJECT);
 
@@ -1599,12 +1573,10 @@ imsg_to_str(int type)
 	CASE(IMSG_MFA_EVENT_COMMIT);
 	CASE(IMSG_MFA_EVENT_ROLLBACK);
 	CASE(IMSG_MFA_EVENT_DISCONNECT);
-	CASE(IMSG_MFA_SMTP_DATA);
 	CASE(IMSG_MFA_SMTP_RESPONSE);
 
-	CASE(IMSG_MTA_BATCH);
-	CASE(IMSG_MTA_BATCH_ADD);
-	CASE(IMSG_MTA_BATCH_END);
+	CASE(IMSG_MTA_TRANSFER);
+	CASE(IMSG_MTA_SCHEDULE);
 
 	CASE(IMSG_QUEUE_CREATE_MESSAGE);
 	CASE(IMSG_QUEUE_SUBMIT_ENVELOPE);

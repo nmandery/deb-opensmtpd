@@ -98,6 +98,8 @@ ssl_setup(SSL_CTX **ctxp, struct ssl *ssl)
 	ssl_set_ephemeral_key_exchange(ctx, dh);
 	DH_free(dh);
 
+	ssl_set_ecdh_curve(ctx);
+
 	*ctxp = ctx;
 	return 1;
 
@@ -151,6 +153,7 @@ fail:
 	return (NULL);
 }
 
+#if 0
 static int
 ssl_password_cb(char *buf, int size, int rwflag, void *u)
 {
@@ -163,15 +166,39 @@ ssl_password_cb(char *buf, int size, int rwflag, void *u)
 		return (0);
 	return (len);
 }
+#endif
+
+static int
+ssl_getpass_cb(char *buf, int size, int rwflag, void *u)
+{
+	int	ret = 0;
+	size_t	len;
+	char	*pass;
+
+	pass = getpass((const char *)u);
+	if (pass == NULL)
+		return 0;
+	len = strlen(pass);
+	if (strlcpy(buf, pass, size) >= (size_t)size)
+		goto end;
+	ret = len;
+end:
+	if (len)
+		bzero(pass, len);
+	return ret;
+}
 
 char *
-ssl_load_key(const char *name, off_t *len, char *pass)
+ssl_load_key(const char *name, off_t *len, char *pass, mode_t perm, const char *pkiname)
 {
 	FILE		*fp;
 	EVP_PKEY	*key = NULL;
 	BIO		*bio = NULL;
 	long		 size;
 	char		*data, *buf = NULL;
+	struct stat	 st;
+	char		 mode[12];
+	char		 prompt[2048];
 
 	/* Initialize SSL library once */
 	ssl_init();
@@ -182,11 +209,26 @@ ssl_load_key(const char *name, off_t *len, char *pass)
 	if ((fp = fopen(name, "r")) == NULL)
 		return (NULL);
 
-	key = PEM_read_PrivateKey(fp, NULL, ssl_password_cb, pass);
+	if (fstat(fileno(fp), &st) != 0)
+		goto fail;
+	if (st.st_uid != 0) {
+		log_warnx("warn:  %s: not owned by uid 0", name);
+		errno = EACCES;
+		goto fail;
+	}
+	if (st.st_mode & (S_IRWXU | S_IRWXG | S_IRWXO) & ~perm) {
+		strmode(perm, mode);
+		log_warnx("warn:  %s: insecure permissions: must be at most %s",
+		    name, &mode[1]);
+		errno = EACCES;
+		goto fail;
+	}
+
+	(void)snprintf(prompt, sizeof prompt, "passphrase for %s: ", pkiname);
+	key = PEM_read_PrivateKey(fp, NULL, ssl_getpass_cb, prompt);
 	fclose(fp);
 	if (key == NULL)
 		goto fail;
-
 	/*
 	 * Write unencrypted key to memory buffer
 	 */
@@ -196,17 +238,16 @@ ssl_load_key(const char *name, off_t *len, char *pass)
 		goto fail;
 	if ((size = BIO_get_mem_data(bio, &data)) <= 0)
 		goto fail;
-	if ((buf = calloc(1, size)) == NULL)
+	if ((buf = calloc(1, size + 1)) == NULL)
 		goto fail;
 	memcpy(buf, data, size);
 
 	BIO_free_all(bio);
-	*len = (off_t)size;
+	*len = (off_t)size + 1;
 	return (buf);
 
 fail:
 	ssl_error("ssl_load_key");
-
 	free(buf);
 	if (bio != NULL)
 		BIO_free_all(bio);
@@ -240,81 +281,53 @@ ssl_ctx_create(void)
 }
 
 int
-ssl_load_certfile(struct ssl **sp, const char *path, const char *name, uint8_t flags)
+ssl_load_certificate(struct ssl *s, const char *pathname)
 {
-	struct ssl     *s;
-	char		pathname[PATH_MAX];
-	int		ret;
-
-	if ((s = calloc(1, sizeof(*s))) == NULL)
-		fatal(NULL);
-
-	s->flags = flags;
-	(void)strlcpy(s->ssl_name, name, sizeof(s->ssl_name));
-
-	ret =  snprintf(pathname, sizeof(pathname), "%s/%s.crt",
-	    path ? path : "/etc/ssl", name);
-	if (ret == -1 || (size_t)ret >= sizeof pathname)
-		goto err;
 	s->ssl_cert = ssl_load_file(pathname, &s->ssl_cert_len, 0755);
 	if (s->ssl_cert == NULL)
-		goto err;
+		return 0;
+	return 1;
+}
 
-	ret = snprintf(pathname, sizeof(pathname), "%s/%s.key",
-	    path ? path : "/etc/ssl/private", name);
-	if (ret == -1 || (size_t)ret >= sizeof pathname)
-		goto err;
-	s->ssl_key = ssl_load_file(pathname, &s->ssl_key_len, 0700);
+int
+ssl_load_keyfile(struct ssl *s, const char *pathname, const char *pkiname)
+{
+	char	pass[1024];
+
+	s->ssl_key = ssl_load_key(pathname, &s->ssl_key_len, pass, 0700, pkiname);
 	if (s->ssl_key == NULL)
-		goto err;
+		return 0;
+	return 1;
+}
 
-	ret = snprintf(pathname, sizeof(pathname), "%s/%s.ca",
-	    path ? path : "/etc/ssl", name);
-	if (ret == -1 || (size_t)ret >= sizeof pathname)
-		goto err;
+int
+ssl_load_cafile(struct ssl *s, const char *pathname)
+{
 	s->ssl_ca = ssl_load_file(pathname, &s->ssl_ca_len, 0755);
-	if (s->ssl_ca == NULL) {
-		if (errno == EACCES)
-			goto err;
-		log_info("info: No CA found in %s", pathname);
-	}
+	if (s->ssl_ca == NULL)
+		return 0;
+	return 1;
+}
 
-	ret = snprintf(pathname, sizeof(pathname), "%s/%s.dh",
-	    path ? path : "/etc/ssl", name);
-	if (ret == -1 || (size_t)ret >= sizeof pathname)
-		goto err;
+int
+ssl_load_dhparams(struct ssl *s, const char *pathname)
+{
 	s->ssl_dhparams = ssl_load_file(pathname, &s->ssl_dhparams_len, 0755);
 	if (s->ssl_dhparams == NULL) {
 		if (errno == EACCES)
-			goto err;
+			return 0;
 		log_info("info: No DH parameters found in %s: "
 		    "using built-in parameters", pathname);
 	}
-
-	*sp = s;
-	return (1);
-
-err:
-	if (s->ssl_cert != NULL)
-		free(s->ssl_cert);
-	if (s->ssl_key != NULL)
-		free(s->ssl_key);
-	if (s->ssl_ca != NULL)
-		free(s->ssl_ca);
-	if (s->ssl_dhparams != NULL)
-		free(s->ssl_dhparams);
-	if (s != NULL)
-		free(s);
-	return (0);
+	return 1;
 }
-
 
 const char *
 ssl_to_text(const SSL *ssl)
 {
 	static char buf[256];
 
-	snprintf(buf, sizeof buf, "version=%s, cipher=%s, bits=%i",
+	snprintf(buf, sizeof buf, "version=%s, cipher=%s, bits=%d",
 	    SSL_get_cipher_version(ssl),
 	    SSL_get_cipher_name(ssl),
 	    SSL_get_cipher_bits(ssl, NULL));
@@ -413,4 +426,31 @@ ssl_set_ephemeral_key_exchange(SSL_CTX *ctx, DH *dh)
 		ssl_error("ssl_set_ephemeral_key_exchange");
 		fatal("ssl_set_ephemeral_key_exchange: cannot set tmp dh");
 	}
+}
+
+void
+ssl_set_ecdh_curve(SSL_CTX *ctx)
+{
+#if OPENSSL_VERSION_NUMBER >= 0x0090800fL
+#ifndef OPENSSL_NO_ECDH
+	int	nid;
+	EC_KEY *ecdh;
+
+	if ((nid = OBJ_sn2nid(SSL_ECDH_CURVE)) == 0) {
+		ssl_error("ssl_set_ecdh_curve");
+		fatal("ssl_set_ecdh_curve: unknown curve name "
+		    SSL_ECDH_CURVE);
+	}
+
+	if ((ecdh = EC_KEY_new_by_curve_name(nid)) == NULL) {
+		ssl_error("ssl_set_ecdh_curve");
+		fatal("ssl_set_ecdh_curve: unable to create curve "
+		    SSL_ECDH_CURVE);
+	}
+
+	SSL_CTX_set_tmp_ecdh(ctx, ecdh);
+	SSL_CTX_set_options(ctx, SSL_OP_SINGLE_ECDH_USE);
+	EC_KEY_free(ecdh);
+#endif
+#endif
 }

@@ -23,6 +23,7 @@
 #include <sys/queue.h>
 #include <sys/tree.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -36,6 +37,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "smtpd.h"
 #include "log.h"
@@ -45,12 +47,7 @@ struct table_backend *table_backend_lookup(const char *);
 extern struct table_backend table_backend_static;
 extern struct table_backend table_backend_db;
 extern struct table_backend table_backend_getpwnam;
-#if defined(HAVE_SQLITE)
-extern struct table_backend table_backend_sqlite;
-#endif
-#if defined(HAVE_LDAP)
-extern struct table_backend table_backend_ldap;
-#endif
+extern struct table_backend table_backend_proc;
 
 static const char * table_service_name(enum table_service);
 static const char * table_backend_name(struct table_backend *);
@@ -68,14 +65,8 @@ table_backend_lookup(const char *backend)
 		return &table_backend_db;
 	if (!strcmp(backend, "getpwnam"))
 		return &table_backend_getpwnam;
-#if defined(HAVE_SQLITE)
-	if (!strcmp(backend, "sqlite"))
-		return &table_backend_sqlite;
-#endif
-#if defined(HAVE_LDAP)
-	if (!strcmp(backend, "ldap"))
-		return &table_backend_ldap;
-#endif
+	if (!strcmp(backend, "proc"))
+		return &table_backend_proc;
 	return NULL;
 }
 
@@ -88,14 +79,8 @@ table_backend_name(struct table_backend *backend)
 		return "db";
 	if (backend == &table_backend_getpwnam)
 		return "getpwnam";
-#if defined(HAVE_SQLITE)
-	if (backend == &table_backend_sqlite)
-		return "sqlite";
-#endif
-#if defined(HAVE_LDAP)
-	if (backend == &table_backend_ldap)
-		return "ldap";
-#endif
+	if (backend == &table_backend_proc)
+		return "proc";
 	return "???";
 }
 
@@ -160,7 +145,7 @@ table_lookup(struct table *table, const char *key, enum table_service kind,
 		    (lk) ? table_dump_lookup(kind, lk): "found",
 		    lk ? "\"" : "");
 	else
-		log_trace(TRACE_LOOKUP, "lookup: %s \"%s\" as %s in table %s:%s -> %i",
+		log_trace(TRACE_LOOKUP, "lookup: %s \"%s\" as %s in table %s:%s -> %d",
 		    lk ? "lookup" : "check",
 		    lkey,
 		    table_service_name(kind),
@@ -190,7 +175,7 @@ table_fetch(struct table *table, enum table_service kind, union lookup *lk)
 		    (lk) ? table_dump_lookup(kind, lk): "found",
 		    lk ? "\"" : "");
 	else
-		log_trace(TRACE_LOOKUP, "lookup: fetch %s from table %s:%s -> %i",
+		log_trace(TRACE_LOOKUP, "lookup: fetch %s from table %s:%s -> %d",
 		    table_service_name(kind),
 		    table_backend_name(table->t_backend),
 		    table->t_name,
@@ -206,7 +191,9 @@ table_create(const char *backend, const char *name, const char *tag,
 	struct table		*t;
 	struct table_backend	*tb;
 	char			 buf[SMTPD_MAXLINESIZE];
+	char			 path[SMTPD_MAXLINESIZE];
 	size_t			 n;
+	struct stat		 sb;
 
 	if (name && tag) {
 		if (snprintf(buf, sizeof(buf), "%s#%s", name, tag)
@@ -219,7 +206,23 @@ table_create(const char *backend, const char *name, const char *tag,
 	if (name && table_find(name, NULL))
 		errx(1, "table_create: table \"%s\" already defined", name);
 
-	if ((tb = table_backend_lookup(backend)) == NULL)
+	if ((tb = table_backend_lookup(backend)) == NULL) {
+		if (snprintf(path, sizeof(path), PATH_TABLES "/table-%s",
+		    backend) >= (int)sizeof(path)) {
+			errx(1, "table_create: path too long \""
+			    PATH_TABLES "/table-%s\"", backend);
+		}
+		if (stat(path, &sb) == 0) {
+			tb = table_backend_lookup("proc");
+			if (config) {
+				strlcat(path, " ", sizeof(path));
+				strlcat(path, config, sizeof(path));
+			}
+			config = path;
+		}
+	}
+
+	if (tb == NULL)
 		errx(1, "table_create: backend \"%s\" does not exist", backend);
 
 	t = xcalloc(1, sizeof(*t), "table_create");
@@ -262,7 +265,7 @@ table_destroy(struct table *t)
 {
 	void	*p = NULL;
 
-	while (dict_poproot(&t->t_dict, NULL, (void **)&p))
+	while (dict_poproot(&t->t_dict, (void **)&p))
 		free(p);
 
 	dict_xpop(env->sc_tables_dict, t->t_name);
@@ -376,7 +379,7 @@ table_mailaddr_match(const char *s1, const char *s2)
 	if (! text_to_mailaddr(&m2, s2))
 		return 0;
 
-	if (strcasecmp(m1.domain, m2.domain))
+	if (! table_domain_match(m1.domain, m2.domain))
 		return 0;
 
 	if (m2.user[0])
@@ -566,7 +569,17 @@ table_parse_lookup(enum table_service service, const char *key,
 			return (-1);
 
 		p = strchr(line, ':');
-		if (p == NULL || p == line || p == line + len - 1)
+		if (p == NULL) {
+			if (strlcpy(lk->creds.username, key, sizeof (lk->creds.username))
+			    >= sizeof (lk->creds.username))
+				return (-1);
+			if (strlcpy(lk->creds.password, line, sizeof(lk->creds.password))
+			    >= sizeof(lk->creds.password))
+				return (-1);
+			return (1);
+		}
+
+		if (p == line || p == line + len - 1)
 			return (-1);
 
 		memmove(lk->creds.username, line, p - line);
@@ -638,13 +651,13 @@ table_dump_lookup(enum table_service s, union lookup *lk)
 		break;
 
 	case K_NETADDR:
-		snprintf(buf, sizeof(buf), "%s/%i",
+		snprintf(buf, sizeof(buf), "%s/%d",
 		    sockaddr_to_text((struct sockaddr *)&lk->netaddr.ss),
 		    lk->netaddr.bits);
 		break;
 
 	case K_USERINFO:
-		snprintf(buf, sizeof(buf), "%s:%i:%i:%s",
+		snprintf(buf, sizeof(buf), "%s:%d:%d:%s",
 		    lk->userinfo.username,
 		    lk->userinfo.uid,
 		    lk->userinfo.gid,
@@ -705,6 +718,8 @@ parse_sockaddr(struct sockaddr *sa, int family, const char *str)
 		return (0);
 
 	case PF_INET6:
+		if (strncasecmp("ipv6:", str, 5) == 0)
+			str += 5;
 		cp = strchr(str, SCOPE_DELIMITER);
 		if (cp) {
 			str2 = strdup(str);

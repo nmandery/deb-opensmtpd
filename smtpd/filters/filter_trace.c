@@ -20,9 +20,9 @@
 
 #include <sys/types.h>
 
-#include <getopt.h>
 #include <inttypes.h>
 #include <stdio.h>
+#include <unistd.h>
 
 #include "smtpd-defines.h"
 #include "smtpd-api.h"
@@ -75,55 +75,68 @@ on_notify(uint64_t qid, enum filter_status status)
 }
 
 static void
-on_connect(uint64_t id, uint64_t qid, struct filter_connect *conn)
+on_connect(uint64_t id, struct filter_connect *conn)
 {
+	uint64_t	qid;
+
+	filter_api_accept_notify(id, &qid);
 	printf("filter-connect: id=%016"PRIx64", qid=%016"PRIx64" hostname=%s\n",
 	    id, qid, conn->hostname);
-	filter_api_accept_notify(qid);
 }
 
 static void
-on_helo(uint64_t id, uint64_t qid, const char *helo)
+on_helo(uint64_t id, const char *helo)
 {
+	uint64_t	qid;
+
+	filter_api_accept_notify(id, &qid);
 	printf("filter: HELO id=%016"PRIx64", qid=%016"PRIx64" %s\n",
 	    id, qid, helo);
-	filter_api_accept_notify(qid);
 }
 
 static void
-on_mail(uint64_t id, uint64_t qid, struct mailaddr *mail)
+on_mail(uint64_t id, struct mailaddr *mail)
 {
+	uint64_t	qid;
+
+	filter_api_accept_notify(id, &qid);
 	printf("filter: MAIL id=%016"PRIx64", qid=%016"PRIx64" %s@%s\n",
 	    id, qid, mail->user, mail->domain);
-	filter_api_accept_notify(qid);
 }
 
 static void
-on_rcpt(uint64_t id, uint64_t qid, struct mailaddr *rcpt)
+on_rcpt(uint64_t id, struct mailaddr *rcpt)
 {
+	uint64_t	qid;
+
+	filter_api_accept_notify(id, &qid);
 	printf("filter: RCPT id=%016"PRIx64", qid=%016"PRIx64" %s@%s\n",
 	    id, qid, rcpt->user, rcpt->domain);
-	filter_api_accept_notify(qid);
 }
 
 static void
-on_data(uint64_t id, uint64_t qid)
+on_data(uint64_t id)
 {
+	uint64_t	qid;
+
+	filter_api_accept_notify(id, &qid);
 	printf("filter: DATA id=%016"PRIx64", qid=%016"PRIx64"\n", id, qid);
-	filter_api_accept_notify(qid);
 }
 
 static void
-on_dataline(uint64_t id, const char *data)
+on_eom(uint64_t id)
 {
-	printf("filter-data: id=%016"PRIx64", \"%s\"\n", id, data);
-}
+	uint64_t	qid;
 
-static void
-on_eom(uint64_t id, uint64_t qid)
-{
+	filter_api_accept_notify(id, &qid);
 	printf("filter-eom: id=%016"PRIx64", qid=%016"PRIx64"\n", id, qid);
-	filter_api_accept_notify(qid);
+}
+
+static void
+on_dataline(uint64_t id, const char *line)
+{
+	printf("filter-data: id=%016"PRIx64", \"%s\"\n", id, line);
+	filter_api_writeln(id, line);
 }
 
 int
@@ -153,7 +166,7 @@ main(int argc, char **argv)
 	filter_api_on_mail(on_mail);
 	filter_api_on_rcpt(on_rcpt);
 	filter_api_on_data(on_data);
-	filter_api_on_dataline(on_dataline, 0);
+	filter_api_on_dataline(on_dataline);
 	filter_api_on_eom(on_eom);
 	filter_api_loop();
 

@@ -1,4 +1,4 @@
-/*	$OpenBSD: res_send.c,v 1.3 2013/04/30 12:02:39 eric Exp $	*/
+/*	$OpenBSD: res_send.c,v 1.6 2013/11/12 06:09:50 deraadt Exp $	*/
 /*
  * Copyright (c) 2012 Eric Faurot <eric@openbsd.org>
  *
@@ -21,6 +21,7 @@
 #include <errno.h>
 #include <resolv.h>
 #include <string.h>
+#include <stdlib.h>
 
 #include "asr.h"
 
@@ -31,6 +32,8 @@ res_send(const u_char *buf, int buflen, u_char *ans, int anslen)
 	struct async_res ar;
 	size_t		 len;
 
+	res_init();
+
 	if (ans == NULL || anslen <= 0) {
 		errno = EINVAL;
 		return (-1);
@@ -40,7 +43,7 @@ res_send(const u_char *buf, int buflen, u_char *ans, int anslen)
 	if (as == NULL)
 		return (-1); /* errno set */
 
-	async_run_sync(as, &ar);
+	asr_async_run_sync(as, &ar);
 
 	if (ar.ar_errno) {
 		errno = ar.ar_errno;

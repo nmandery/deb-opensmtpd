@@ -246,19 +246,19 @@ duration_to_text(time_t t)
 	d = t / 24;
 
 	if (d) {
-		snprintf(buf, sizeof buf, "%llid", d);
+		snprintf(buf, sizeof buf, "%lldd", d);
 		strlcat(dst, buf, sizeof dst);
 	}
 	if (h) {
-		snprintf(buf, sizeof buf, "%ih", h);
+		snprintf(buf, sizeof buf, "%dh", h);
 		strlcat(dst, buf, sizeof dst);
 	}
 	if (m) {
-		snprintf(buf, sizeof buf, "%im", m);
+		snprintf(buf, sizeof buf, "%dm", m);
 		strlcat(dst, buf, sizeof dst);
 	}
 	if (s) {
-		snprintf(buf, sizeof buf, "%is", s);
+		snprintf(buf, sizeof buf, "%ds", s);
 		strlcat(dst, buf, sizeof dst);
 	}
 
@@ -347,8 +347,12 @@ text_to_relayhost(struct relayhost *relay, const char *s)
 {
 	static const struct schema {
 		const char	*name;
-		uint8_t		 flags;
+		uint16_t       	 flags;
 	} schemas [] = {
+		/*
+		 * new schemas should be *appended* otherwise the default
+		 * schema index needs to be updated later in this function.
+		 */
 		{ "smtp://",		0				},
 		{ "lmtp://",		F_LMTP				},
 		{ "smtp+tls://",       	F_TLS_OPTIONAL 			},
@@ -356,8 +360,8 @@ text_to_relayhost(struct relayhost *relay, const char *s)
 		{ "tls://",		F_STARTTLS			},
 		{ "smtps+auth://",	F_SMTPS|F_AUTH			},
 		{ "tls+auth://",	F_STARTTLS|F_AUTH		},
-		{ "ssl://",		F_SMTPS|F_STARTTLS		},
-		{ "ssl+auth://",	F_SMTPS|F_STARTTLS|F_AUTH	},
+		{ "secure://",		F_SMTPS|F_STARTTLS		},
+		{ "secure+auth://",	F_SMTPS|F_STARTTLS|F_AUTH	},
 		{ "backup://",		F_BACKUP       			}
 	};
 	const char     *errstr = NULL;
@@ -382,7 +386,7 @@ text_to_relayhost(struct relayhost *relay, const char *s)
 			return 0;
 
 		/* no schema, default to smtp+tls:// */
-		i = 1;
+		i = 2;
 		p = buffer;
 	}
 	else
@@ -440,10 +444,10 @@ relayhost_to_text(const struct relayhost *relay)
 	bzero(buf, sizeof buf);
 	switch (relay->flags) {
 	case F_SMTPS|F_STARTTLS|F_AUTH:
-		strlcat(buf, "ssl+auth://", sizeof buf);
+		strlcat(buf, "secure+auth://", sizeof buf);
 		break;
 	case F_SMTPS|F_STARTTLS:
-		strlcat(buf, "ssl://", sizeof buf);
+		strlcat(buf, "secure://", sizeof buf);
 		break;
 	case F_STARTTLS|F_AUTH:
 		strlcat(buf, "tls+auth://", sizeof buf);
@@ -451,10 +455,16 @@ relayhost_to_text(const struct relayhost *relay)
 	case F_SMTPS|F_AUTH:
 		strlcat(buf, "smtps+auth://", sizeof buf);
 		break;
+	case F_STARTTLS|F_TLS_VERIFY:
+		strlcat(buf, "tls://", sizeof buf);
+		break;
 	case F_STARTTLS:
 		strlcat(buf, "tls://", sizeof buf);
 		break;
 	case F_SMTPS:
+		strlcat(buf, "smtps://", sizeof buf);
+		break;
+	case F_SMTPS|F_TLS_VERIFY:
 		strlcat(buf, "smtps://", sizeof buf);
 		break;
 	case F_BACKUP:
@@ -481,18 +491,6 @@ relayhost_to_text(const struct relayhost *relay)
 		strlcat(buf, port, sizeof buf);
 	}
 	return buf;
-}
-
-uint32_t
-evpid_to_msgid(uint64_t evpid)
-{
-	return (evpid >> 32);
-}
-
-uint64_t
-msgid_to_evpid(uint32_t msgid)
-{
-	return ((uint64_t)msgid << 32);
 }
 
 uint64_t
@@ -539,19 +537,26 @@ rule_to_text(struct rule *r)
 	bzero(buf, sizeof buf);
 	strlcpy(buf, r->r_decision == R_ACCEPT  ? "accept" : "reject", sizeof buf);
 	if (r->r_tag[0]) {
-		strlcat(buf, " on ", sizeof buf);
+		strlcat(buf, " tagged ", sizeof buf);
+		if (r->r_nottag)
+			strlcat(buf, "! ", sizeof buf);
 		strlcat(buf, r->r_tag, sizeof buf);
 	}
 	strlcat(buf, " from ", sizeof buf);
+	if (r->r_notsources)
+		strlcat(buf, "! ", sizeof buf);
 	strlcat(buf, r->r_sources->t_name, sizeof buf);
 
+	strlcat(buf, " for ", sizeof buf);
+	if (r->r_notdestination)
+		strlcat(buf, "! ", sizeof buf);
 	switch (r->r_desttype) {
 	case DEST_DOM:
 		if (r->r_destination == NULL) {
-			strlcat(buf, " for any", sizeof buf);
+			strlcat(buf, " any", sizeof buf);
 			break;
 		}
-		strlcat(buf, " for domain ", sizeof buf);
+		strlcat(buf, " domain ", sizeof buf);
 		strlcat(buf, r->r_destination->t_name, sizeof buf);
 		if (r->r_mapping) {
 			strlcat(buf, " alias ", sizeof buf);
@@ -560,11 +565,11 @@ rule_to_text(struct rule *r)
 		break;
 	case DEST_VDOM:
 		if (r->r_destination == NULL) {
-			strlcat(buf, " for any virtual ", sizeof buf);
+			strlcat(buf, " any virtual ", sizeof buf);
 			strlcat(buf, r->r_mapping->t_name, sizeof buf);
 			break;
 		}
-		strlcat(buf, " for domain ", sizeof buf);
+		strlcat(buf, " domain ", sizeof buf);
 		strlcat(buf, r->r_destination->t_name, sizeof buf);
 		strlcat(buf, " virtual ", sizeof buf);
 		strlcat(buf, r->r_mapping->t_name, sizeof buf);
@@ -602,6 +607,8 @@ rule_to_text(struct rule *r)
 		strlcat(buf, r->r_value.buffer, sizeof buf);
 		strlcat(buf, "\"", sizeof buf);
 		break;
+	case A_NONE:
+		break;
 	}
 	    
 	return buf;
@@ -631,7 +638,7 @@ text_to_userinfo(struct userinfo *userinfo, const char *s)
 		*p++ = *s++;
 	if (*s++ != ':')
 		goto error;
-	userinfo->uid = strtonum(buf, 0, UINT_MAX, &errstr);
+	userinfo->uid = strtonum(buf, 0, UID_MAX, &errstr);
 	if (errstr)
 		goto error;
 
@@ -641,7 +648,7 @@ text_to_userinfo(struct userinfo *userinfo, const char *s)
 		*p++ = *s++;
 	if (*s++ != ':')
 		goto error;
-	userinfo->gid = strtonum(buf, 0, UINT_MAX, &errstr);
+	userinfo->gid = strtonum(buf, 0, GID_MAX, &errstr);
 	if (errstr)
 		goto error;
 
@@ -731,14 +738,26 @@ expandnode_to_text(struct expandnode *expandnode)
 static int
 alias_is_filter(struct expandnode *alias, const char *line, size_t len)
 {
-	if (*line == '|') {
-		if (strlcpy(alias->u.buffer, line + 1,
-			sizeof(alias->u.buffer)) >= sizeof(alias->u.buffer))
+	int	v = 0;
+
+	if (*line == '"')
+		v = 1;
+	if (*(line+v) == '|') {
+		if (strlcpy(alias->u.buffer, line + v + 1,
+		    sizeof(alias->u.buffer)) >= sizeof(alias->u.buffer))
 			return 0;
+		if (v) {
+			v = strlen(alias->u.buffer);
+			if (v == 0)
+				return (0);
+			if (alias->u.buffer[v-1] != '"')
+				return (0);
+			alias->u.buffer[v-1] = '\0';
+		}
 		alias->type = EXPAND_FILTER;
-		return 1;
+		return (1);
 	}
-	return 0;
+	return (0);
 }
 
 static int
@@ -751,7 +770,7 @@ alias_is_username(struct expandnode *alias, const char *line, size_t len)
 		return 0;
 
 	while (*line) {
-		if (!isalnum((int)*line) &&
+		if (!isalnum((unsigned char)*line) &&
 		    *line != '_' && *line != '.' && *line != '-')
 			return 0;
 		++line;
@@ -787,7 +806,7 @@ alias_is_address(struct expandnode *alias, const char *line, size_t len)
 
 	while (*line) {
 		char allowedset[] = "!#$%*/?|^{}`~&'+-=_.";
-		if (!isalnum((int)*line) &&
+		if (!isalnum((unsigned char)*line) &&
 		    strchr(allowedset, *line) == NULL)
 			return 0;
 		++line;
@@ -795,7 +814,7 @@ alias_is_address(struct expandnode *alias, const char *line, size_t len)
 
 	while (*domain) {
 		char allowedset[] = "-.";
-		if (!isalnum((int)*domain) &&
+		if (!isalnum((unsigned char)*domain) &&
 		    strchr(allowedset, *domain) == NULL)
 			return 0;
 		++domain;
@@ -863,9 +882,11 @@ alias_is_error(struct expandnode *alias, const char *line, size_t len)
 		return 0;
 
 	/* [45][0-9]{2} [a-zA-Z0-9].* */
-	if (alias->u.buffer[3] != ' ' || !isalnum(alias->u.buffer[4]) ||
+	if (alias->u.buffer[3] != ' ' ||
+	    !isalnum((unsigned char)alias->u.buffer[4]) ||
 	    (alias->u.buffer[0] != '4' && alias->u.buffer[0] != '5') ||
-	    !isdigit(alias->u.buffer[1]) || !isdigit(alias->u.buffer[2]))
+	    !isdigit((unsigned char)alias->u.buffer[1]) ||
+	    !isdigit((unsigned char)alias->u.buffer[2]))
 		return 0;
 
 	alias->type = EXPAND_ERROR;

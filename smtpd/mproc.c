@@ -170,10 +170,18 @@ mproc_dispatch(int fd, short event, void *arg)
 
 	if (event & EV_WRITE) {
 		n = msgbuf_write2(&p->imsgbuf.w);
-		if (n == -1)
-			fatal("msgbuf_write");
-		p->bytes_out += n;
-		p->bytes_queued -= n;
+		if (n == 0 || (n == -1 && errno != EAGAIN)) {
+			/* this pipe is dead, so remove the event handler */
+			if (smtpd_process != PROC_CONTROL ||
+			    p->proc != PROC_CLIENT)
+				log_warnx("warn: %s -> %s: pipe closed",
+				    proc_name(smtpd_process),  p->name);
+			p->handler(p, NULL);
+			return;
+		} else if (n != -1) {
+			p->bytes_out += n;
+			p->bytes_queued -= n;
+		}
 	}
 
 	for (;;) {
@@ -241,7 +249,7 @@ msgbuf_write2(struct msgbuf *msgbuf)
 
 again:
 	if ((n = sendmsg(msgbuf->fd, &msg, 0)) == -1) {
-		if (errno == EAGAIN || errno == EINTR)
+		if (errno == EINTR)
 			goto again;
 		if (errno == ENOBUFS)
 			errno = EAGAIN;
@@ -675,7 +683,7 @@ m_get_envelope(struct msg *m, struct envelope *evp)
 	m_get_typed_sized(m, M_ENVELOPE, &d, &s);
 
 	if (!envelope_load_buffer(evp, d, s - 1))
-		fatalx("failed to retreive envelope");
+		fatalx("failed to retrieve envelope");
 	evp->id = evpid;
 #endif
 }
