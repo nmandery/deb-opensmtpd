@@ -9,17 +9,22 @@ Origin: vendor
 Forwarded: not-needed
 ---
 This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
-Index: opensmtpd/smtpd/Makefile.am
+Index: opensmtpd/mk/smtpctl/Makefile.am
 ===================================================================
---- opensmtpd.orig/smtpd/Makefile.am	2013-06-09 20:12:52.217708598 -0400
-+++ opensmtpd/smtpd/Makefile.am	2013-06-09 20:14:01.743485670 -0400
-@@ -168,9 +168,6 @@
- 		echo "$(DESTDIR)$(sysconfdir)/smtpd.conf already exists, install will not overwrite"; \
+--- opensmtpd.orig/mk/smtpctl/Makefile.am	2013-12-23 09:58:00.056592026 -0500
++++ opensmtpd/mk/smtpctl/Makefile.am	2013-12-23 09:58:19.469242900 -0500
+@@ -66,7 +66,6 @@
+ install-exec-hook: $(CONFIGFILES) $(MANPAGES)
+ 	$(MKDIR_P) $(DESTDIR)$(mandir)/$(mansubdir)8
+ 	if test "$(USE_MAILWRAPPER)" = "0"; then \
+-		ln -s $(sbindir)/smtpctl  $(DESTDIR)$(sbindir)/mailq;\
+ 		ln -s $(sbindir)/smtpctl  $(DESTDIR)$(bindir)/sendmail;\
  	fi
- 
--	ln -sf $(DESTDIR)$(sbindir)/smtpctl$(EXEEXT)				\
--		$(DESTDIR)$(bindir)/mailq$(EXEEXT);
--
- 	ln -sf ../../$(pkglibexecdir)/makemap$(EXEEXT)			\
- 		$(DESTDIR)$(bindir)/newaliases$(EXEEXT);
- 
+ 	$(INSTALL) -m 644 smtpctl.8.out		$(DESTDIR)$(mandir)/$(mansubdir)8/smtpctl.8
+@@ -78,6 +77,5 @@
+ 	rm -f	$(DESTDIR)$(mandir)/$(mansubdir)8/sendmail.8			\
+ 	rmdir	$(DESTDIR)$(mandir)/$(mansubdir)8 2> /dev/null || /bin/true
+ 	if test "$(USE_MAILWRAPPER)" = "0"; then \
+-		rm -f $(DESTDIR)$(sbindir)/mailq;\
+ 		rm -f $(DESTDIR)$(bindir)/sendmail;\
+ 	fi

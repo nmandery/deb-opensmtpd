@@ -6,13 +6,15 @@ Origin: vendor
 Forwarded: not-needed
 ---
 This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
-Index: opensmtpd/regress/bin/Makefile.am
+Index: opensmtpd/mk/regress/Makefile.am
 ===================================================================
---- opensmtpd.orig/regress/bin/Makefile.am	2013-06-06 09:28:22.387357295 -0400
-+++ opensmtpd/regress/bin/Makefile.am	2013-06-10 08:01:10.743967128 -0400
-@@ -1,4 +1,4 @@
+--- opensmtpd.orig/mk/regress/Makefile.am	2013-12-22 09:33:51.459036681 -0500
++++ opensmtpd/mk/regress/Makefile.am	2013-12-23 09:59:31.367653536 -0500
+@@ -1,6 +1,6 @@
+ include	$(top_srcdir)/mk/pathnames
+ 
 -bin_PROGRAMS=		smtpscript
 +bin_PROGRAMS=
  
- smtpscript_SOURCES=	smtpscript.c iobuf.c parse.y ssl.c
- 
+ smtpscript_SOURCES=	$(regress_srcdir)/smtpscript.c
+ smtpscript_SOURCES+=	$(regress_srcdir)/iobuf.c

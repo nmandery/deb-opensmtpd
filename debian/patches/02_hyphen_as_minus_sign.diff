@@ -7,8 +7,8 @@ Forwarded: no
 This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
 Index: opensmtpd/smtpd/newaliases.8
 ===================================================================
---- opensmtpd.orig/smtpd/newaliases.8	2013-05-21 16:58:29.293343722 -0400
-+++ opensmtpd/smtpd/newaliases.8	2013-05-21 17:27:50.650357978 -0400
+--- opensmtpd.orig/smtpd/newaliases.8	2013-12-22 09:36:27.320323266 -0500
++++ opensmtpd/smtpd/newaliases.8	2013-12-22 09:36:27.320323266 -0500
 @@ -48,7 +48,7 @@
  The preferred way of rebuilding the database is with
  .Xr makemap 8 :
@@ -20,9 +20,9 @@ Index: opensmtpd/smtpd/newaliases.8
  .Bl -tag -width "/etc/mail/aliasesXXX" -compact
 Index: opensmtpd/smtpd/smtpd.conf.5
 ===================================================================
---- opensmtpd.orig/smtpd/smtpd.conf.5	2013-06-05 23:51:38.076116354 -0400
-+++ opensmtpd/smtpd/smtpd.conf.5	2013-06-05 23:51:38.072116252 -0400
-@@ -85,7 +85,7 @@
+--- opensmtpd.orig/smtpd/smtpd.conf.5	2013-12-22 09:36:27.320323266 -0500
++++ opensmtpd/smtpd/smtpd.conf.5	2013-12-22 09:36:27.320323266 -0500
+@@ -835,7 +835,7 @@
  %{rcpt.domain[0]}	expands to "e"
  %{rcpt.domain[1]}	expands to "x"
  %{rcpt.domain[8:]}	expands to "org"
@@ -31,28 +31,3 @@ Index: opensmtpd/smtpd/smtpd.conf.5
  %{rcpt.domain[0:6]}	expands to "example"
  %{rcpt.domain[0:-4]}	expands to "example"
  .Ed
-@@ -642,9 +642,9 @@
- Mail with a local destination should be sent to an external mda.
- First, the RSA certificate is created:
- .Bd -literal -offset indent
--# openssl genrsa -out /etc/mail/certs/mail.example.com.key 4096
--# openssl req -new -x509 -key /etc/mail/certs/mail.example.com.key \e
--	-out /etc/mail/certs/mail.example.com.crt -days 365
-+# openssl genrsa \-out /etc/mail/certs/mail.example.com.key 4096
-+# openssl req \-new \-x509 \-key /etc/mail/certs/mail.example.com.key \e
-+	\-out /etc/mail/certs/mail.example.com.crt \-days 365
- # chmod 600 /etc/mail/certs/mail.example.com.*
- .Ed
- .Pp
-@@ -655,9 +655,9 @@
- listen on lo0
- listen on egress tls certificate mail.example.com auth
- table aliases db:/etc/mail/aliases.db
--accept for local alias <aliases> deliver to mda "/path/to/mda -f -"
-+accept for local alias <aliases> deliver to mda "/path/to/mda \-f \-"
- accept from any for domain example.org \e
--	deliver to mda "/path/to/mda -f -"
-+	deliver to mda "/path/to/mda \-f \-"
- accept for any relay
- .Ed
- .Sh SEE ALSO

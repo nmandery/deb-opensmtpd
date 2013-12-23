@@ -6,9 +6,9 @@ Forwarded: not-needed
 This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
 Index: opensmtpd/smtpd/smtpd.8
 ===================================================================
---- opensmtpd.orig/smtpd/smtpd.8	2013-06-06 09:28:22.395357498 -0400
-+++ opensmtpd/smtpd/smtpd.8	2013-07-30 09:39:43.056940226 -0400
-@@ -87,26 +87,6 @@
+--- opensmtpd.orig/smtpd/smtpd.8	2013-12-23 09:59:48.192217636 -0500
++++ opensmtpd/smtpd/smtpd.8	2013-12-23 10:00:48.134227393 -0500
+@@ -87,29 +87,6 @@
  .It Fl v
  Produce more verbose output.
  .El
@@ -26,6 +26,9 @@ Index: opensmtpd/smtpd/smtpd.8
 -newaliases	/usr/libexec/smtpd/makemap
 -.Ed
 -.Pp
+-Disable the sendmail clientmqueue entry in
+-.Xr crontab 1 .
+-.Pp
 -Rebuild the aliases database,
 -and enable the daemon:
 -.Bd -literal -offset indent
@@ -34,8 +37,16 @@ Index: opensmtpd/smtpd/smtpd.8
 -.Ed
  .Sh FILES
  .Bl -tag -width "/var/run/smtpd.sockXXX" -compact
- .It /etc/mail/smtpd.conf
-@@ -134,17 +114,3 @@
+ .It Pa /etc/mail/mailname
+@@ -125,7 +102,6 @@
+ .El
+ .Sh SEE ALSO
+ .Xr smtpd.conf 5 ,
+-.Xr mailwrapper 8 ,
+ .Xr smtpctl 8
+ .Sh STANDARDS
+ .Rs
+@@ -139,17 +115,3 @@
  .Nm
  program first appeared in
  .Ox 4.6 .
