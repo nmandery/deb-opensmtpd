@@ -2,7 +2,6 @@
 04_no_mailq.diff
 05_no_smtpscript.diff
 06_man_cleanup.diff
-10_automake_114.diff
 11_sys-mount.h_hurd.diff
 12_kfreebsd-hurd_crypt.h.diff
 13_reserve_inodes.diff
