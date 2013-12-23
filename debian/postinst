@@ -160,7 +160,7 @@ makemap -t aliases /etc/aliases
 
 case "$1" in
     configure)
-        for name in opensmtpd opensmtpq opensmtpf; do
+        for name in opensmtpd opensmtpq; do
             id -g ${name} > /dev/null 2>&1 || addgroup --system ${name}
         done
 
@@ -175,11 +175,6 @@ case "$1" in
                     --no-create-home --disabled-password \
                     --gecos "OpenSMTD queue user" \
                     --ingroup opensmtpq opensmtpq
-        id opensmtpf > /dev/null 2>&1 || \
-                adduser --system --home /var/lib/opensmtpd/empty \
-                    --no-create-home --disabled-password \
-                    --gecos "OpenSMTD filter user" \
-                    --ingroup opensmtpf opensmtpf
     ;;
 
     abort-upgrade|abort-remove|abort-deconfigure|reconfigure)

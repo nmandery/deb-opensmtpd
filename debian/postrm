@@ -5,7 +5,7 @@ set -e
 case "$1" in
     purge)
 	rm -rf /var/spool/opensmtpd
-        for name in opensmtpd opensmtpq opensmtpf; do
+        for name in opensmtpd opensmtpq; do
             # By debian Policy §6.5, we may only rely on essential packages and
             # must fail gracefully if they are unavailable.
             # Use userdel/groupdel from passwd instead of deluser/delgroup from
