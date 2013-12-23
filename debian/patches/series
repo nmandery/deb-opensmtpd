@@ -2,5 +2,4 @@
 04_no_mailq.diff
 05_no_smtpscript.diff
 06_man_cleanup.diff
-13_reserve_inodes.diff
 14_syslog_prognames.diff
