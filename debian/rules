@@ -12,10 +12,6 @@ override_dh_auto_configure:
 	    --with-privsep-user=opensmtpd \
 	    --with-queue-user=opensmtpq
 
-override_dh_auto_clean:
-	dh_auto_clean
-	find . -name Makefile.in -exec rm -f {} \;
-
 override_dh_fixperms:
 	dh_fixperms
 	chmod 711 debian/opensmtpd/var/spool/smtpd
