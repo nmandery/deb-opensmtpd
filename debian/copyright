@@ -3,29 +3,34 @@ Upstream-Name: opensmtpd
 Source: http://www.opensmtpd.org/
 
 Files: *
-Copyright: Copyright (C) 2006, 2008-2013   Gilles Chehade <gilles@poolp.org>,<gilles@openbsd.org>
+Copyright: Copyright (C) 2006-2013 Gilles Chehade <gilles@poolp.org>,<gilles@openbsd.org>
            Copyright (C) 2011-2013 Eric Faurot <eric@faurot.net>,<eric@openbsd.org>
-           Copyright (C) 2008-2009 Jacek Masiulaniec <jacekm@dobremiasto.net>,<jacekm@openbsd.org>
-           Copyright (C) 2006, 2008        Pierre-Yves Ritschard <pyr@openbsd.org>
-           Copyright (C) 2002-2005 Henning Brauer <henning@openbsd.org>,<henning@bulabula.org>
-           Copyright (C) 2004-2005 Esben Norby <norby@openbsd.org>
-           Copyright (C) 2000-2001 Markus Friedl
+           Copyright (C) 2012      Charles Longeau <chl@openbsd.org>
+           Copyright (C) 1996      David Mazieres <dm@uun.org>
+           Copyright (C) 1999-2008 Damien Miller <djm@openbsd.org>
+           Copyright (C) 2000-2013 Markus Friedl <markus@openbsd.org>
            Copyright (C) 2001      Daniel Hartmeier
            Copyright (C) 2001      Theo de Raadt
+           Copyright (C) 2002-2005 Henning Brauer <henning@openbsd.org>,<henning@bulabula.org>
+           Copyright (C) 2003      Peter Stuge <stuge-mdoc2man@cdy.org>
+           Copyright (C) 2004-2005 Esben Norby <norby@openbsd.org>
            Copyright (C) 2005-2007 Claudio Jeker <claudio@openbsd.org>
-           Copyright (C) 2007-2008 Reyk Floeter <reyk@vantronix.net>,<reyk@openbsd.org>
-           Copyright (C) 2008      Janne Johansson <jj@openbsd.org>
-           Copyright (C) 2008      Alexander Schrijver <aschrijver@openbsd.org>
            Copyright (C) 2006-2007 Marc Balmer <mbalmer@openbsd.org>
+           Copyright (C) 2006-2008 Pierre-Yves Ritschard <pyr@openbsd.org>
+           Copyright (C) 2007-2008 Reyk Floeter <reyk@vantronix.net>,<reyk@openbsd.org>
+           Copyright (C) 2008      Alexander Schrijver <aschrijver@openbsd.org>
+           Copyright (C) 2008      Janne Johansson <jj@openbsd.org>
+           Copyright (C) 2008-2009 Jacek Masiulaniec <jacekm@dobremiasto.net>,<jacekm@openbsd.org>
            Copyright (C) 2013      Ashish Shukla <ashish.is@lostca.se>
-           Copyright (C) 2012      Charles Longeau <chl@openbsd.org>
+           Copyright (C) 2013      Ryan Kavanagh <rak@debian.org>
+           Copyright (C) 2013      Sunil Nimmagadda <sunil@sunilnimmagadda.com>
 License: ISC
 
 
 Files: debian/*
-Copyright: Copyright (C) 2013 Ryan Kavanagh <rak@debian.org>
-           Copyright (C) 2013 Daniel Walrond <debian@djw.org.uk>
-           Copyright (C) 2013 Justin B Rye <justin.byam.rye@gmail.com>
+Copyright: Copyright (C) 2013-2014 Ryan Kavanagh <rak@debian.org>
+           Copyright (C) 2013      Daniel Walrond <debian@djw.org.uk>
+           Copyright (C) 2013      Justin B Rye <justin.byam.rye@gmail.com>
 License: ISC
 
 Files: debian/po/*
@@ -108,7 +113,7 @@ License: BSD-4-clause with additional restrictions
 
 
 Files: contrib/lib/libc/asr/*
-Copyright: Copyright (C) 2009-2012 Eric Faurot <eric@openbsd.org>
+Copyright: Copyright (C) 2009-2013 Eric Faurot <eric@openbsd.org>
 	   Copyright (C) 1999-2001 Internet Software Consortium
 License: ISC
 
@@ -170,7 +175,9 @@ Files: openbsd-compat/bsd-waitpid.*
        openbsd-compat/fgetln.c
        openbsd-compat/openbsd-compat.h
        openbsd-compat/sys/tree.h
+       openbsd-compat/pidfile.c
 Copyright: Copyright (C) 2000, 2003 Ben Lindstrom
+           Copyright (c) 1999       The NetBSD Foundation, Inc.
 	   Copyright (C) 1999-2003  Damien Miller
 	   Copyright (C) 2001       Marc Espie
 	   Copyright (C) 2002       Tim Rice
@@ -234,15 +241,136 @@ License: permissive
  called by a name other than "ssh" or "Secure Shell".
 
 
-Files: bootstrap
-Copyright: Copyright (c) 2002-2011 Sam Hocevar <sam@hocevar.net>
+Files: aclocal.m4
+       mk/Makefile.in
+       mk/filters/stub/Makefile.in
+       mk/filters/monkey/Makefile.in
+       mk/filters/Makefile.in
+       mk/filters/dnsbl/Makefile.in
+       mk/filters/trace/Makefile.in
+       mk/smtpctl/Makefile.in
+       mk/makemap/Makefile.in
+       mk/backends/table-passwd/Makefile.in
+       mk/backends/table-stub/Makefile.in
+       mk/backends/table-postgres/Makefile.in
+       mk/backends/scheduler-ram/Makefile.in
+       mk/backends/queue-null/Makefile.in
+       mk/backends/table-sqlite/Makefile.in
+       mk/backends/table-mysql/Makefile.in
+       mk/backends/Makefile.in
+       mk/backends/queue-ram/Makefile.in
+       mk/backends/queue-stub/Makefile.in
+       mk/backends/scheduler-stub/Makefile.in
+       mk/backends/table-ldap/Makefile.in
+       mk/smtpd/Makefile.in
+       contrib/libexec/encrypt/Makefile.in
+       contrib/libexec/mail.local/Makefile.in
+       contrib/libexec/Makefile.in
+       contrib/Makefile.in
+       openbsd-compat/Makefile.in
+       Makefile.in
+Copyright: Copyright (c) 1996-2013 Free Software foundation, Inc.
 License: permissive
- This program is free software. It comes without any warranty, to
- the extent permitted by applicable law. You can redistribute it
- and/or modify it under the terms of the Do What The Fuck You Want
- To Public License, Version 2, as published by Sam Hocevar. See
- http://sam.zoy.org/wtfpl/COPYING for more details.
+ This file is free software; the Free Software Foundation
+ gives unlimited permission to copy and/or distribute it,
+ with or without modifications, as long as this notice is preserved.
+ .
+ This program is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY, to the extent permitted by law; without
+ even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+ PARTICULAR PURPOSE.
 
+Files: configure
+Copyright: Copyright (C) 1992-2012 Free Software Foundation, Inc.
+License: permissive and GPL-2+ with Autoconf exception
+ This configure script is free software; the Free Software Foundation
+ gives unlimited permission to copy, distribute and modify it.
+ .
+ GNU Libtool is free software; you can redistribute it and/or
+ modify it under the terms of the GNU General Public License as
+ published by the Free Software Foundation; either version 2 of
+ the License, or (at your option) any later version.
+ .
+ As a special exception to the GNU General Public License,
+ if you distribute this file as part of a program or library that
+ is built using GNU Libtool, you may include this file under the
+ same distribution terms that you use for the rest of that program.
+ .
+ GNU Libtool is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ GNU General Public License for more details.
+ .
+ You should have received a copy of the GNU General Public License
+ along with GNU Libtool; see the file COPYING.  If not, a copy
+ can be downloaded from http://www.gnu.org/licenses/gpl.html, or
+ obtained by writing to the Free Software Foundation, Inc.,
+ 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ .
+ On Debian systems, the full text of the GNU General Public License
+ version 2 can be found in the file `/usr/share/common-licenses/GPL-2'.
+
+Files: config.guess config.sub
+Copyright: Copyright (c) 1996-2013 Free Software foundation, Inc.
+License: GPL-3+ with Autoconf exception
+ This file is free software; you can redistribute it and/or modify it
+ under the terms of the GNU General Public License as published by
+ the Free Software Foundation; either version 3 of the License, or
+ (at your option) any later version.
+ .
+ This program is distributed in the hope that it will be useful, but
+ WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ General Public License for more details.
+ .
+ You should have received a copy of the GNU General Public License
+ along with this program; if not, see <http://www.gnu.org/licenses/>.
+ .
+ As a special exception to the GNU General Public License, if you
+ distribute this file as part of a program that contains a
+ configuration script generated by Autoconf, you may include it under
+ the same distribution terms that you use for the rest of that
+ program.  This Exception is an additional permission under section 7
+ of the GNU General Public License, version 3 ("GPLv3").
+ .
+ On Debian systems, the full text of the GNU General Public License
+ version 3 can be found in the file `/usr/share/common-licenses/GPL-3'.
+
+Files: install-sh
+Copyright: Copyright (C) 1994 X Consortium
+License: Expat with additional restrictions and public domain
+ Permission is hereby granted, free of charge, to any person obtaining a
+ copy of this software and associated documentation files (the
+ "Software"), to deal in the Software without restriction, including
+ without limitation the rights to use, copy, modify, merge, publish,
+ distribute, sublicense, and/or sell copies of the Software, and to
+ permit persons to whom the Software is furnished to do so, subject to
+ the following conditions:
+ .
+ The above copyright notice and this permission notice shall be included
+ in all copies or substantial portions of the Software.
+ .
+ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+ OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+ IN NO EVENT SHALL THE X CONSORTIUM BE LIABLE FOR ANY CLAIM, DAMAGES OR
+ OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+ ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+ OTHER DEALINGS IN THE SOFTWARE.
+ .
+ Except as contained in this notice, the name of the X Consortium shall
+ not be used in advertising or otherwise to promote the sale, use or
+ other dealings in this Software without prior written authorization
+ from the X Consortium.
+ .
+ FSF changes to this file are in the public domain.
+ .
+ Calling this script install-sh is preferred over install.sh, to
+ prevent 'make' implicit rules from creating a file called install from
+ it when there is no Makefile.
+ .
+ This script is compatible with the BSD install script, but was written
+ from scratch.
 
 Files: configure.ac
 Copyright: Copyright (C) 1999-2004 Damien Miller
