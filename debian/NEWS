@@ -1,0 +1,12 @@
+opensmtpd (5.4.1p1-1) unstable; urgency=medium
+
+    There have been minor changes to the smtpd.conf file format[0] which
+    require manual editing of your /etc/smtpd.conf file. These changes affect
+    TLS configuration and the format of "accept" rules, and are summarised in
+    the file /usr/share/doc/opensmtpd/CONFIG-UPDATE.txt.gz . Full details may
+    be found in the man page smtpd.conf(5).
+
+    [0] http://www.opensmtpd.org/announces/release-5.4.1.txt
+        local copy at: /usr/share/doc/opensmtpd/changelog.gz
+
+ -- Ryan Kavanagh <rak@debian.org>  Sun, 02 Feb 2014 09:55:55 -0500
