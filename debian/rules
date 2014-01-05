@@ -12,6 +12,9 @@ override_dh_auto_configure:
 	    --with-privsep-user=opensmtpd \
 	    --with-queue-user=opensmtpq
 
+override_dh_installchangelogs:
+	dh_installchangelogs debian/upstream_changelog.txt
+
 override_dh_fixperms:
 	dh_fixperms
 	chmod 711 debian/opensmtpd/var/spool/smtpd
