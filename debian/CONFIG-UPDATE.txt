@@ -1,0 +1,61 @@
+Upgrading smtpd.conf from 5.3 to 5.4:
+=====================================
+
+To remove ambiguity in the configuration file's grammar and to simplify
+configuration of TLS-enabled hosts, several changes were made to the format of
+`smtpd.conf`. The changes affecting users upgrading from OpenSMTPD 5.3 to 5.4
+are summarised below. For full details, please see the man page `smtpd.conf`.
+For details on new configuration parameters, additionally see the release notes,
+available [online][online-notes] or [locally][local-notes].
+
+After making your changes, you can check the validity of your `smtpd.conf` by
+running:
+
+    smtpd -nf /path/to/your/smtpd.conf
+
+The default path to `smtpd.conf` is `/etc/smtpd.conf` on Debian-derived systems.
+
+TLS / SMTPS
+-----------
+
+OpenSMTPD 5.4 now requires you to specify the location of your SSL key and
+certificate via a `pki` stanza. Moreover, the `ssl` verb must be changed to
+`secure`, as follows:
+
+### Old:
+
+    listen on em0 tls certificate cert auth-optional
+
+### New:
+
+    # First we setup certificate information for a hostname
+    pki mx.opensmtpd.org certificate "/where/is/my.crt"
+    pki mx.opensmtpd.org key "/where/are/my.keys"
+    # Then we reference it for use
+    listen on all secure pki mx.opensmtpd.org
+
+Accepting from all
+------------------
+
+All instances of `accept from` are now `accept from source` with the exceptions
+listed in the man page `smtpd.conf(5)`:
+
+### Old:
+
+    accept from all # would accept from a server with the hostname "all"
+    accept from any # would accept from any source
+    accept from local # accepts from local sources only.
+
+### New:
+
+    accept from source all # would accept from a server with the hostname "all"
+    accept from any # would accept from any source
+    accept from local # accepts from local sources only.
+
+
+Source: This file is based off of the following document by Jason Barbier, which
+is distributed under the ISC:
+https://github.com/kusuriya/OpenSMTPD/wiki/Config-Updates
+
+[online-notes]: http://www.opensmtpd.org/announces/release-5.4.1.txt
+[local-notes]: /usr/share/doc/opensmtpd/changelog.gz
