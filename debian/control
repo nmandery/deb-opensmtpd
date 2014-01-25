@@ -7,6 +7,7 @@ Build-Depends: debhelper (>= 9.0.0)
  , autoconf
  , automake
  , bison
+ , dh-autoreconf
  , libdb-dev
  , libevent-dev
  , libpam0g-dev
