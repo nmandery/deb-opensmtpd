@@ -1,0 +1,43 @@
+Description: Don't use hyphens as minus signs in man pages
+Author: Ryan Kavanagh <rak@debian.org>
+Forwarded: https://github.com/poolpOrg/OpenSMTPD/pull/417
+---
+This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
+Index: opensmtpd/smtpd/smtpd.conf.5
+===================================================================
+--- opensmtpd.orig/smtpd/smtpd.conf.5	2014-02-01 14:36:38.113941690 -0500
++++ opensmtpd/smtpd/smtpd.conf.5	2014-02-01 14:36:38.113941690 -0500
+@@ -728,7 +728,7 @@
+ .Xr openssl 1
+ utility as follow:
+ .Bd -literal -offset indent
+-$ openssl rand -hex 16
++$ openssl rand \-hex 16
+ .Ed
+ .Pp
+ If the
+@@ -912,9 +912,9 @@
+ Mail with a local destination should be sent to an external mda.
+ First, the RSA certificate is created:
+ .Bd -literal -offset indent
+-# openssl genrsa -out /etc/ssl/private/mail.example.com.key 4096
+-# openssl req -new -x509 -key /etc/ssl/private/mail.example.com.key \e
+-	-out /etc/ssl/mail.example.com.crt -days 365
++# openssl genrsa \-out /etc/ssl/private/mail.example.com.key 4096
++# openssl req \-new \-x509 \-key /etc/ssl/private/mail.example.com.key \e
++	\-out /etc/ssl/mail.example.com.crt \-days 365
+ # chmod 600 /etc/ssl/mail.example.com.crt
+ # chmod 600 /etc/ssl/private/mail.example.com.key
+ .Ed
+@@ -931,9 +931,9 @@
+ 
+ table aliases db:/etc/mail/aliases.db
+ 
+-accept for local alias <aliases> deliver to mda "/path/to/mda -f -"
++accept for local alias <aliases> deliver to mda "/path/to/mda \-f \-"
+ accept from any for domain example.org \e
+-	deliver to mda "/path/to/mda -f -"
++	deliver to mda "/path/to/mda \-f \-"
+ accept for any relay
+ .Ed
+ .Sh SEE ALSO
