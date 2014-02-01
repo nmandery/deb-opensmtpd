@@ -3,3 +3,4 @@
 05_no_smtpscript.diff
 06_man_cleanup.diff
 07_automake_missing_options.diff
+08_man_errors.diff
