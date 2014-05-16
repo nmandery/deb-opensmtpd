@@ -124,10 +124,13 @@ control_imsg(struct mproc *p, struct imsg *imsg)
 	}
 	if (p->proc == PROC_MTA) {
 		switch (imsg->hdr.type) {
+		case IMSG_CTL_OK:
+		case IMSG_CTL_FAIL:
 		case IMSG_CTL_MTA_SHOW_HOSTS:
 		case IMSG_CTL_MTA_SHOW_RELAYS:
 		case IMSG_CTL_MTA_SHOW_ROUTES:
 		case IMSG_CTL_MTA_SHOW_HOSTSTATS:
+		case IMSG_CTL_MTA_SHOW_BLOCK:
 			c = tree_get(&ctl_conns, imsg->hdr.peerid);
 			if (c == NULL)
 				return;
@@ -196,7 +199,7 @@ control_create_socket(void)
 	if ((fd = socket(AF_UNIX, SOCK_STREAM, 0)) == -1)
 		fatal("control: socket");
 
-	bzero(&sun, sizeof(sun));
+	memset(&sun, 0, sizeof(sun));
 	sun.sun_family = AF_UNIX;
 	if (strlcpy(sun.sun_path, SMTPD_SOCKET,
 	    sizeof(sun.sun_path)) >= sizeof(sun.sun_path))
@@ -278,7 +281,7 @@ control(void)
 
 	tree_init(&ctl_conns);
 
-	bzero(&digest, sizeof digest);
+	memset(&digest, 0, sizeof digest);
 	digest.startup = time(NULL);
 
 	config_peer(PROC_SCHEDULER);
@@ -427,6 +430,7 @@ control_digest_update(const char *key, size_t value, int incr)
 static void
 control_dispatch_ext(struct mproc *p, struct imsg *imsg)
 {
+	struct sockaddr_storage	 ss;
 	struct ctl_conn		*c;
 	int			 v;
 	struct stat_kv		*kvp;
@@ -448,8 +452,7 @@ control_dispatch_ext(struct mproc *p, struct imsg *imsg)
 
 	switch (imsg->hdr.type) {
 	case IMSG_SMTP_ENQUEUE_FD:
-		if (env->sc_flags & (SMTPD_SMTP_PAUSED |
-		    SMTPD_CONFIGURING | SMTPD_EXITING)) {
+		if (env->sc_flags & (SMTPD_SMTP_PAUSED | SMTPD_EXITING)) {
 			m_compose(p, IMSG_CTL_FAIL, 0, 0, -1, NULL, 0);
 			return;
 		}
@@ -713,11 +716,34 @@ control_dispatch_ext(struct mproc *p, struct imsg *imsg)
 	case IMSG_CTL_MTA_SHOW_RELAYS:
 	case IMSG_CTL_MTA_SHOW_ROUTES:
 	case IMSG_CTL_MTA_SHOW_HOSTSTATS:
+	case IMSG_CTL_MTA_SHOW_BLOCK:
 		if (c->euid)
 			goto badcred;
 
 		imsg->hdr.peerid = c->id;
 		m_forward(p_mta, imsg);
+		return;
+
+	case IMSG_CTL_SHOW_STATUS:
+		if (c->euid)
+			goto badcred;
+
+		m_compose(p, IMSG_CTL_SHOW_STATUS, 0, 0, -1, &env->sc_flags,
+		    sizeof(env->sc_flags));
+		return;
+
+	case IMSG_CTL_MTA_BLOCK:
+	case IMSG_CTL_MTA_UNBLOCK:
+		if (c->euid)
+			goto badcred;
+
+		if (imsg->hdr.len - IMSG_HEADER_SIZE <= sizeof(ss))
+			goto invalid;
+		memmove(&ss, imsg->data, sizeof(ss));
+		m_create(p_mta, imsg->hdr.type, c->id, 0, -1);
+		m_add_sockaddr(p_mta, (struct sockaddr *)&ss);
+		m_add_string(p_mta, (char *)imsg->data + sizeof(ss));
+		m_close(p_mta);
 		return;
 
 	case IMSG_CTL_SCHEDULE:

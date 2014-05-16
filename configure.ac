@@ -14,9 +14,9 @@
 # ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 # OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-dnl AC_INIT([OpenSMTPD-5.4.1p1],[4.9.0],[Charles Longeau <chl@openbsd.org>])
-dnl AC_INIT([OpenSMTPD-5.4.1p1], m4_esyscmd(date +%Y%m%d%H%M%S | sed -e 's/^\(.*\)$/5.2-\1/' | tr -d '\n'),[Charles Longeau <chl@openbsd.org>])
-AC_INIT([opensmtpd], [5.4.1p1], [bugs@opensmtpd.org])
+dnl AC_INIT([OpenSMTPD-5.4.2p1],[4.9.0],[Charles Longeau <chl@openbsd.org>])
+dnl AC_INIT([OpenSMTPD-5.4.2p1], m4_esyscmd(date +%Y%m%d%H%M%S | sed -e 's/^\(.*\)$/5.2-\1/' | tr -d '\n'),[Charles Longeau <chl@openbsd.org>])
+AC_INIT([opensmtpd], [5.4.2p1], [bugs@opensmtpd.org])
 AC_LANG([C])
 AC_CONFIG_MACRO_DIR([m4])
 
@@ -56,7 +56,7 @@ if test "x$with_pic" != "xno" ; then
 fi
 
 
-#from here everything comes from 5.4.1p1 openssh configure.ac script
+#from here everything comes from 5.4.2p1 openssh configure.ac script
 
 #l50
 dnl select manpage formatter
@@ -379,7 +379,7 @@ main() { if (NSVersionOfRunTimeLibrary("System") >= (60 << 16))
 	if test "x$withval" != "xno" ; then
 		need_dash_r=1
 	fi
-	#not in 5.4.1p1 OpenSSH, maybe because they don't use portable OpenSSH?
+	#not in 5.4.2p1 OpenSSH, maybe because they don't use portable OpenSSH?
 	AC_DEFINE([BROKEN_STRNVIS], [1], [NetBSD strnvis does not do what we need])
 	;;
 *-*-freebsd*)
@@ -622,7 +622,6 @@ dnl    Checks for library functions. Please keep in alphabetical order
 AC_CHECK_FUNCS([ \
 	arc4random \
         arc4random_buf \
-        arc4random_stir \
         arc4random_uniform \
 	asprintf \
 	b64_ntop \
@@ -645,6 +644,7 @@ AC_CHECK_FUNCS([ \
 	inet_aton \
 	inet_ntoa \
 	inet_ntop \
+	isblank \
 	memmove \
 	nsleep \
 	pidfile \
@@ -1295,6 +1295,25 @@ AM_CONDITIONAL([HAVE_GCM_CRYPTO], [test $EXPERIMENTAL_GCM_CRYPTO = yes])
 ##chl
 
 ##gilles
+OPENSSL_SUPPORTS_SNI=no
+AC_MSG_CHECKING([if programs using TLSEXT_NAMETYPE_host_name will link])
+AC_LINK_IFELSE(
+	[AC_LANG_PROGRAM([[ #include <openssl/ssl.h> ]],
+	[[ SSL_CTX_set_tlsext_servername_callback(NULL, NULL); ]])],
+	[
+		AC_MSG_RESULT([yes])
+		AC_DEFINE([HAVE_TLSEXT_SERVERNAME], [1],
+			[Define if you want to enable TLS extension SERVERNAME])
+		OPENSSL_SUPPORTS_SNI=yes
+	],
+	[
+		AC_MSG_RESULT([no])
+	]
+)
+AM_CONDITIONAL([HAVE_TLSEXT_SERVERNAME], [test $OPENSSL_SUPPORTS_SNI = yes])
+##gilles
+
+##gilles
 AC_MSG_CHECKING([if SSL_OP_NO_TICKET is supported])
 AC_EGREP_CPP(HAVE_SSL_OP_NO_TICKET, [
 #include <openssl/ssl.h>
@@ -1496,6 +1515,21 @@ if test "x$PAM_MSG" = "xyes" ; then
 		
 	])
 fi
+
+
+USE_PAM_SERVICE=smtpd
+AC_ARG_WITH([pam-service],
+	[  --with-pam-service=service Specify PAM service],
+	[
+		if test -n "$withval"  &&  test "x$withval" != "xno"  &&  \
+		    test "x${withval}" != "xyes"; then
+			USE_PAM_SERVICE=$withval
+		fi
+	]
+)
+AC_DEFINE_UNQUOTED([USE_PAM_SERVICE], ["$USE_PAM_SERVICE"], [pam service])
+AC_SUBST([USE_PAM_SERVICE])
+
 
 SMTPD_USER=_smtpd
 AC_ARG_WITH([privsep-user],
@@ -2577,6 +2611,34 @@ AC_ARG_WITH([experimental-sqlite],
 )
 AM_CONDITIONAL([HAVE_SQLITE], [test $EXPERIMENTAL_SQLITE = yes])
 
+# Whether to enable *experimental* Redis support
+EXPERIMENTAL_REDIS=no
+AC_ARG_WITH([experimental-redis],
+	[  --with-experimental-redis	Enable experimental Redis support],
+	[
+		if test "x$withval" != "xno" ; then
+			AC_DEFINE([HAVE_REDIS], [1],
+				[Define if you have experimental Redis support])
+			EXPERIMENTAL_REDIS=yes
+		fi
+	]
+)
+AM_CONDITIONAL([HAVE_REDIS], [test $EXPERIMENTAL_REDIS = yes])
+
+# Whether to enable *experimental* Redis support
+EXPERIMENTAL_SOCKETMAP=no
+AC_ARG_WITH([experimental-socketmap],
+	[  --with-experimental-socketmap	Enable experimental socketmap support],
+	[
+		if test "x$withval" != "xno" ; then
+			AC_DEFINE([HAVE_SOCKETMAP], [1],
+				[Define if you have experimental socketmap support])
+			EXPERIMENTAL_SOCKETMAP=yes
+		fi
+	]
+)
+AM_CONDITIONAL([HAVE_SOCKETMAP], [test $EXPERIMENTAL_SOCKETMAP = yes])
+
 
 dnl AC_DEFINE([_GNU_SOURCE], [], [Enable GNU Extensions])
 
@@ -2598,7 +2660,7 @@ AC_SUBST([UNSUPPORTED_ALGORITHMS], [$unsupported_algorithms])
 AC_EXEEXT
 #l4566
 
-##chl (still based on 5.4.1p1 OpenSSH's configure.ac)
+##chl (still based on 5.4.2p1 OpenSSH's configure.ac)
 AC_MSG_CHECKING([if inet_net_pton will link])
 AC_LINK_IFELSE([AC_LANG_PROGRAM([[
 #include <sys/types.h>
@@ -2891,6 +2953,7 @@ AC_CONFIG_FILES([Makefile
 		mk/backends/table-postgres/Makefile
 		mk/backends/table-sqlite/Makefile
 		mk/backends/table-stub/Makefile
+		mk/backends/table-redis/Makefile
 		mk/filters/Makefile
 		mk/filters/dnsbl/Makefile
 		mk/filters/stub/Makefile
