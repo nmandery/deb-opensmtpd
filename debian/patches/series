@@ -2,6 +2,5 @@
 04_no_mailq.diff
 06_man_cleanup.diff
 07_automake_missing_options.diff
-08_man_errors.diff
 09_hyphens_in_man.diff
 10_smtpd.conf.diff
