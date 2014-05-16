@@ -23,3 +23,11 @@ endif
 if HAVE_SQLITE
 SUBDIRS+=	table-sqlite
 endif
+
+if HAVE_REDIS
+SUBDIRS+=	table-redis
+endif
+
+if HAVE_SOCKETMAP
+SUBDIRS+=	table-socketmap
+endif

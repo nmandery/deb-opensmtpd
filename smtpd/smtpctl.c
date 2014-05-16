@@ -121,7 +121,7 @@ srv_connect(void)
 	if ((ctl_sock = socket(AF_UNIX, SOCK_STREAM, 0)) == -1)
 		err(1, "socket");
 
-	bzero(&sun, sizeof(sun));
+	memset(&sun, 0, sizeof(sun));
 	sun.sun_family = AF_UNIX;
 	strlcpy(sun.sun_path, SMTPD_SOCKET, sizeof(sun.sun_path));
 	if (connect(ctl_sock, (struct sockaddr *)&sun, sizeof(sun)) == -1) {
@@ -131,8 +131,7 @@ srv_connect(void)
 		return (0);
 	}
 
-	if ((ibuf = calloc(1, sizeof(struct imsgbuf))) == NULL)
-		err(1, "calloc");
+	ibuf = xcalloc(1, sizeof(struct imsgbuf), "smtpctl:srv_connect");
 	imsg_init(ibuf, ctl_sock);
 
 	return (1);
@@ -423,7 +422,7 @@ do_monitor(int argc, struct parameter *argv)
 	struct stat_digest	last, digest;
 	size_t			count;
 
-	bzero(&last, sizeof(last));
+	memset(&last, 0, sizeof(last));
 	count = 0;
 
 	while (1) {
@@ -721,7 +720,7 @@ do_show_stats(int argc, struct parameter *argv)
 	struct stat_kv	kv;
 	time_t		duration;
 
-	bzero(&kv, sizeof kv);
+	memset(&kv, 0, sizeof kv);
 
 	while (1) {
 		srv_send(IMSG_STATS_GET, &kv, sizeof kv);
@@ -764,6 +763,24 @@ do_show_stats(int argc, struct parameter *argv)
 		}
 	}
 
+	return (0);
+}
+
+static int
+do_show_status(int argc, struct parameter *argv)
+{
+	uint32_t	sc_flags;
+
+	srv_send(IMSG_CTL_SHOW_STATUS, NULL, 0);
+	srv_recv(IMSG_CTL_SHOW_STATUS);
+	srv_read(&sc_flags, sizeof(sc_flags));
+	srv_end();
+	printf("MDA %s\n",
+	    (sc_flags & SMTPD_MDA_PAUSED) ? "paused" : "running");
+	printf("MTA %s\n",
+	    (sc_flags & SMTPD_MTA_PAUSED) ? "paused" : "running");
+	printf("SMTP %s\n",
+	    (sc_flags & SMTPD_SMTP_PAUSED) ? "paused" : "running");
 	return (0);
 }
 
@@ -827,6 +844,51 @@ do_encrypt(int argc, struct parameter *argv)
 	errx(1, "execl");
 }
 
+static int
+do_block_mta(int argc, struct parameter *argv)
+{
+	struct ibuf *m;
+
+	if (ibuf == NULL && !srv_connect())
+		errx(1, "smtpd doesn't seem to be running");
+	m = imsg_create(ibuf, IMSG_CTL_MTA_BLOCK, IMSG_VERSION, 0,
+	    sizeof(argv[0].u.u_ss) + strlen(argv[1].u.u_str) + 1);
+	if (imsg_add(m, &argv[0].u.u_ss, sizeof(argv[0].u.u_ss)) == -1)
+		errx(1, "imsg_add");
+	if (imsg_add(m, argv[1].u.u_str, strlen(argv[1].u.u_str) + 1) == -1)
+		errx(1, "imsg_add");
+	imsg_close(ibuf, m);
+
+	return srv_check_result(1);
+}
+
+static int
+do_unblock_mta(int argc, struct parameter *argv)
+{
+	struct ibuf *m;
+
+	if (ibuf == NULL && !srv_connect())
+		errx(1, "smtpd doesn't seem to be running");
+
+	m = imsg_create(ibuf, IMSG_CTL_MTA_UNBLOCK, IMSG_VERSION, 0,
+	    sizeof(argv[0].u.u_ss) + strlen(argv[1].u.u_str) + 1);
+	if (imsg_add(m, &argv[0].u.u_ss, sizeof(argv[0].u.u_ss)) == -1)
+		errx(1, "imsg_add");
+	if (imsg_add(m, argv[1].u.u_str, strlen(argv[1].u.u_str) + 1) == -1)
+		errx(1, "imsg_add");
+	imsg_close(ibuf, m);
+
+	return srv_check_result(1);
+}
+
+static int
+do_show_mta_block(int argc, struct parameter *argv)
+{
+	srv_show_cmd(IMSG_CTL_MTA_SHOW_BLOCK, NULL, 0);
+
+	return (0);
+}
+
 int
 main(int argc, char **argv)
 {
@@ -843,6 +905,9 @@ main(int argc, char **argv)
 
 	cmd_install("encrypt",			do_encrypt);
 	cmd_install("encrypt <str>",		do_encrypt);
+	cmd_install("pause mta from <addr> for <str>", do_block_mta);
+	cmd_install("resume mta from <addr> for <str>", do_unblock_mta);
+	cmd_install("show mta paused",		do_show_mta_block);
 	cmd_install("log brief",		do_log_brief);
 	cmd_install("log verbose",		do_log_verbose);
 	cmd_install("monitor",			do_monitor);
@@ -873,6 +938,7 @@ main(int argc, char **argv)
 	cmd_install("show relays",		do_show_relays);
 	cmd_install("show routes",		do_show_routes);
 	cmd_install("show stats",		do_show_stats);
+	cmd_install("show status",		do_show_status);
 	cmd_install("stop",			do_stop);
 	cmd_install("trace <str>",		do_trace);
 	cmd_install("unprofile <str>",		do_unprofile);

@@ -41,6 +41,7 @@
 #include <libgen.h>
 #include <netdb.h>
 #include <pwd.h>
+#include <resolv.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -200,7 +201,7 @@ mkdirs(char *path, mode_t mode)
 	if (strlen(path) >= sizeof buf)
 		return 0;
 
-	bzero(buf, sizeof buf);
+	memset(buf, 0, sizeof buf);
 	for (p = path; *p; p++) {
 		if (*p == '/') {
 			if (buf[0] != '\0')
@@ -445,11 +446,7 @@ hostname_match(const char *hostname, const char *pattern)
 int
 valid_localpart(const char *s)
 {
-/*
- * RFC 5322 defines theses characters as valid: !#$%&'*+-/=?^_`{|}~
- * some of them are potentially dangerous, and not so used after all.
- */
-#define IS_ATEXT(c) (isalnum((unsigned char)(c)) || strchr("*!%+-/=_", (c)))
+#define IS_ATEXT(c) (isalnum((unsigned char)(c)) || strchr(MAILADDR_ALLOWED, (c)))
 nextatom:
 	if (! IS_ATEXT(*s) || *s == '\0')
 		return 0;
@@ -660,22 +657,6 @@ generate_uid(void)
 }
 
 void
-fdlimit(double percent)
-{
-	struct rlimit rl;
-
-	if (percent < 0 || percent > 1)
-		fatalx("fdlimit: parameter out of range");
-	if (getrlimit(RLIMIT_NOFILE, &rl) == -1)
-		fatal("fdlimit: getrlimit");
-	if (rl.rlim_max == RLIM_INFINITY)
-		rl.rlim_max = OPEN_MAX;
-	rl.rlim_cur = percent * rl.rlim_max;
-	if (setrlimit(RLIMIT_NOFILE, &rl) == -1)
-		fatal("fdlimit: setrlimit");
-}
-
-void
 session_socket_blockmode(int fd, enum blockmodes bm)
 {
 	int	flags;
@@ -697,7 +678,7 @@ session_socket_no_linger(int fd)
 {
 	struct linger	 lng;
 
-	bzero(&lng, sizeof(lng));
+	memset(&lng, 0, sizeof(lng));
 	if (setsockopt(fd, SOL_SOCKET, SO_LINGER, &lng, sizeof(lng)) == -1)
 		fatal("session_socket_no_linger");
 }
@@ -737,8 +718,8 @@ parse_smtp_response(char *line, size_t len, char **msg, int *cont)
 		return "line too short";
 
 	/* validate reply code */
-	if (line[0] < '2' || line[0] > '5' || !isdigit(line[1]) ||
-	    !isdigit(line[2]))
+	if (line[0] < '2' || line[0] > '5' || !isdigit((unsigned char)line[1]) ||
+	    !isdigit((unsigned char)line[2]))
 		return "reply code out of range";
 
 	/* validate reply message */
@@ -816,4 +797,17 @@ end:
 	if (fp)
 		fclose(fp);
 	return ret;
+}
+
+int
+base64_encode(unsigned char const *src, size_t srclen,
+	      char *dest, size_t destsize)
+{
+	return __b64_ntop(src, srclen, dest, destsize);
+}
+
+int
+base64_decode(char const *src, unsigned char *dest, size_t destsize)
+{
+	return __b64_pton(src, dest, destsize);
 }

@@ -67,7 +67,7 @@
 #ifndef SMTPD_NAME
 #define	SMTPD_NAME		 "OpenSMTPD"
 #endif
-#define	SMTPD_VERSION		 "5.4.1p1"
+#define	SMTPD_VERSION		 "5.4.2p1"
 #define SMTPD_BANNER		 "220 %s ESMTP %s"
 #define SMTPD_SESSION_TIMEOUT	 300
 #define SMTPD_BACKLOG		 5
@@ -86,6 +86,15 @@
 #ifndef	PATH_TABLES
 #define	PATH_TABLES		"/usr/libexec/smtpd"
 #endif
+
+
+/*
+ * RFC 5322 defines these characters as valid, some of them are
+ * potentially dangerous and need to be escaped.
+ */
+#define	MAILADDR_ALLOWED       	"!#$%&'*/?^`{|}~+-=_"
+#define	MAILADDR_ESCAPE		"!#$%&'*/?^`{|}~"
+
 
 #define F_STARTTLS		0x01
 #define F_SMTPS			0x02
@@ -110,6 +119,8 @@
 #define RELAY_LMTP		0x80
 #define	RELAY_TLS_VERIFY	0x200
 
+#define MTA_EXT_DSN		0x400
+
 struct userinfo {
 	char username[SMTPD_MAXLOGNAME];
 	char directory[SMTPD_MAXPATHLEN];
@@ -126,7 +137,7 @@ struct relayhost {
 	uint16_t flags;
 	char hostname[SMTPD_MAXHOSTNAMELEN];
 	uint16_t port;
-	char cert[SMTPD_MAXPATHLEN];
+	char pki_name[SMTPD_MAXPATHLEN];
 	char authtable[SMTPD_MAXPATHLEN];
 	char authlabel[SMTPD_MAXPATHLEN];
 	char sourcetable[SMTPD_MAXPATHLEN];
@@ -167,7 +178,7 @@ union lookup {
  * Bump IMSG_VERSION whenever a change is made to enum imsg_type.
  * This will ensure that we can never use a wrong version of smtpctl with smtpd.
  */
-#define	IMSG_VERSION		7
+#define	IMSG_VERSION		9
 
 enum imsg_type {
 	IMSG_NONE,
@@ -188,6 +199,7 @@ enum imsg_type {
 	IMSG_CTL_LIST_ENVELOPES,
 	IMSG_CTL_REMOVE,
 	IMSG_CTL_SCHEDULE,
+	IMSG_CTL_SHOW_STATUS,
 
 	IMSG_CTL_TRACE,
 	IMSG_CTL_UNTRACE,
@@ -198,6 +210,9 @@ enum imsg_type {
 	IMSG_CTL_MTA_SHOW_RELAYS,
 	IMSG_CTL_MTA_SHOW_ROUTES,
 	IMSG_CTL_MTA_SHOW_HOSTSTATS,
+	IMSG_CTL_MTA_BLOCK,
+	IMSG_CTL_MTA_UNBLOCK,
+	IMSG_CTL_MTA_SHOW_BLOCK,
 
 	IMSG_CONF_START,
 	IMSG_CONF_SSL,
@@ -402,12 +417,20 @@ struct delivery_mta {
 enum bounce_type {
 	B_ERROR,
 	B_WARNING,
+	B_DSN
+};
+
+enum dsn_ret {
+	DSN_RETFULL = 1,
+	DSN_RETHDRS
 };
 
 struct delivery_bounce {
 	enum bounce_type	type;
 	time_t			delay;
 	time_t			expire;
+	enum dsn_ret		dsn_ret;
+        int			mta_without_dsn;
 };
 
 enum expand_type {
@@ -451,6 +474,13 @@ struct expand {
 	struct expandnode		*parent;
 };
 
+#define DSN_SUCCESS 0x01
+#define DSN_FAILURE 0x02
+#define DSN_DELAY   0x04
+#define DSN_NEVER   0x08
+
+#define	DSN_ENVID_LEN	100
+
 #define	SMTPD_ENVELOPE_VERSION		2
 struct envelope {
 	TAILQ_ENTRY(envelope)		entry;
@@ -484,6 +514,14 @@ struct envelope {
 	time_t				lasttry;
 	time_t				nexttry;
 	time_t				lastbounce;
+
+	struct mailaddr			dsn_orcpt;
+	char				dsn_envid[DSN_ENVID_LEN+1];
+	uint8_t				dsn_notify;
+	enum dsn_ret			dsn_ret;
+
+	uint8_t				esc_class;
+	uint8_t				esc_code;
 };
 
 struct listener {
@@ -493,9 +531,7 @@ struct listener {
 	in_port_t		 port;
 	struct timeval		 timeout;
 	struct event		 ev;
-	char			 ssl_cert_name[SMTPD_MAXPATHLEN];
-	struct ssl		*ssl;
-	void			*ssl_ctx;
+	char			 pki_name[SMTPD_MAXPATHLEN];
 	char			 tag[MAX_TAG_SIZE];
 	char			 authtable[SMTPD_MAXLINESIZE];
 	char			 hostname[SMTPD_MAXHOSTNAMELEN];
@@ -511,15 +547,14 @@ struct smtpd {
 #define SMTPD_OPT_NOACTION		0x00000002
 	uint32_t			sc_opts;
 
-#define SMTPD_CONFIGURING		0x00000001
-#define SMTPD_EXITING			0x00000002
-#define SMTPD_MDA_PAUSED		0x00000004
-#define SMTPD_MTA_PAUSED		0x00000008
-#define SMTPD_SMTP_PAUSED		0x00000010
-#define SMTPD_MDA_BUSY			0x00000020
-#define SMTPD_MTA_BUSY			0x00000040
-#define SMTPD_BOUNCE_BUSY		0x00000080
-#define SMTPD_SMTP_DISABLED		0x00000100
+#define SMTPD_EXITING			0x00000001
+#define SMTPD_MDA_PAUSED		0x00000002
+#define SMTPD_MTA_PAUSED		0x00000004
+#define SMTPD_SMTP_PAUSED		0x00000008
+#define SMTPD_MDA_BUSY			0x00000010
+#define SMTPD_MTA_BUSY			0x00000020
+#define SMTPD_BOUNCE_BUSY		0x00000040
+#define SMTPD_SMTP_DISABLED		0x00000080
 	uint32_t			sc_flags;
 
 #define QUEUE_COMPRESSION      		0x00000001
@@ -553,8 +588,9 @@ struct smtpd {
 
 	TAILQ_HEAD(listenerlist, listener)	*sc_listeners;
 
-	TAILQ_HEAD(rulelist, rule)		*sc_rules, *sc_rules_reload;
+	TAILQ_HEAD(rulelist, rule)		*sc_rules;
 	
+	struct dict			       *sc_pki_dict;
 	struct dict			       *sc_ssl_dict;
 
 	struct dict			       *sc_tables_dict;		/* keyed lookup	*/
@@ -662,6 +698,7 @@ struct mta_connector {
 #define CONNECTOR_ERROR_ROUTE_NET	0x0008
 #define CONNECTOR_ERROR_ROUTE_SMTP	0x0010
 #define CONNECTOR_ERROR_ROUTE		0x0018
+#define CONNECTOR_ERROR_BLOCKED		0x0020
 #define CONNECTOR_ERROR			0x00ff
 
 #define CONNECTOR_LIMIT_HOST		0x0100
@@ -723,6 +760,8 @@ struct mta_limits {
 	time_t	sessdelay_transaction;
 	time_t	sessdelay_keepalive;
 
+	size_t	max_failures_per_session;
+
 	int	family;
 
 	int	task_hiwat;
@@ -741,7 +780,7 @@ struct mta_relay {
 	int			 backuppref;
 	char			*sourcetable;
 	uint16_t		 port;
-	char			*cert;
+	char			*pki_name;
 	char			*authtable;
 	char			*authlabel;
 	char			*helotable;
@@ -784,7 +823,13 @@ struct mta_envelope {
 	char				*rcpt;
 	struct mta_task			*task;
 	int				 delivery;
-	int				 penalty;
+
+	int				 ext;
+	char				*dsn_orcpt;
+	char				dsn_envid[DSN_ENVID_LEN+1];
+	uint8_t				dsn_notify;
+	enum dsn_ret			dsn_ret;
+
 	char				 status[SMTPD_MAXLINESIZE];
 };
 
@@ -1058,7 +1103,7 @@ int	uncompress_file(FILE *, FILE *);
 #define PURGE_LISTENERS		0x01
 #define PURGE_TABLES		0x02
 #define PURGE_RULES		0x04
-#define PURGE_SSL		0x08
+#define PURGE_PKI		0x08
 #define PURGE_EVERYTHING	0xff
 void purge_config(uint8_t);
 void init_pipes(void);
@@ -1098,6 +1143,8 @@ int		 enqueue(int, char **);
 
 /* envelope.c */
 void envelope_set_errormsg(struct envelope *, char *, ...);
+void envelope_set_esc_class(struct envelope *, enum enhanced_status_class);
+void envelope_set_esc_code(struct envelope *, enum enhanced_status_code);
 int envelope_load_buffer(struct envelope *, const char *, size_t);
 int envelope_dump_buffer(const struct envelope *, char *, size_t);
 
@@ -1212,7 +1259,7 @@ void mta_route_down(struct mta_relay *, struct mta_route *);
 void mta_route_collect(struct mta_relay *, struct mta_route *);
 void mta_source_error(struct mta_relay *, struct mta_route *, const char *);
 void mta_delivery_log(struct mta_envelope *, const char *, const char *, int, const char *);
-void mta_delivery_notify(struct mta_envelope *, uint32_t);
+void mta_delivery_notify(struct mta_envelope *);
 struct mta_task *mta_route_next_task(struct mta_relay *, struct mta_route *);
 const char *mta_host_to_text(struct mta_host *);
 const char *mta_relay_to_text(struct mta_relay *);
@@ -1230,8 +1277,8 @@ int cmdline_symset(char *);
 /* queue.c */
 pid_t queue(void);
 void queue_ok(uint64_t);
-void queue_tempfail(uint64_t, uint32_t, const char *);
-void queue_permfail(uint64_t, const char *);
+void queue_tempfail(uint64_t, const char *, enum enhanced_status_code);
+void queue_permfail(uint64_t, const char *, enum enhanced_status_code);
 void queue_loop(uint64_t);
 void queue_flow_control(void);
 
@@ -1263,7 +1310,7 @@ pid_t scheduler(void);
 
 /* scheduler_bakend.c */
 struct scheduler_backend *scheduler_backend_lookup(const char *);
-void scheduler_info(struct scheduler_info *, struct envelope *, uint32_t);
+void scheduler_info(struct scheduler_info *, struct envelope *);
 time_t scheduler_compute_schedule(struct scheduler_info *);
 
 
@@ -1288,7 +1335,7 @@ const char *imsg_to_str(int);
 
 /* ssl_smtpd.c */
 void   *ssl_mta_init(char *, off_t, char *, off_t);
-void   *ssl_smtp_init(void *, char *, off_t, char *, off_t);
+void   *ssl_smtp_init(void *, char *, off_t, char *, off_t, void *, void *);
 
 
 /* stat_backend.c */
@@ -1371,7 +1418,6 @@ int  lowercase(char *, const char *, size_t);
 void xlowercase(char *, const char *, size_t);
 int  uppercase(char *, const char *, size_t);
 uint64_t generate_uid(void);
-void fdlimit(double);
 int availdesc(void);
 int ckdir(const char *, mode_t, uid_t, gid_t, int);
 int rmtree(char *, int);
@@ -1391,6 +1437,9 @@ void session_socket_blockmode(int, enum blockmodes);
 void session_socket_no_linger(int);
 int session_socket_error(int);
 int getmailname(char *, size_t);
+int base64_encode(unsigned char const *, size_t, char *, size_t);
+int base64_decode(char const *, unsigned char *, size_t);
+
 
 /* waitq.c */
 int  waitq_wait(void *, void (*)(void *, void *, void *), void *);
