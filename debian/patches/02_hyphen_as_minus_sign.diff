@@ -7,8 +7,8 @@ Forwarded: no
 This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
 Index: opensmtpd/smtpd/newaliases.8
 ===================================================================
---- opensmtpd.orig/smtpd/newaliases.8	2013-12-22 09:36:27.320323266 -0500
-+++ opensmtpd/smtpd/newaliases.8	2013-12-22 09:36:27.320323266 -0500
+--- opensmtpd.orig/smtpd/newaliases.8	2014-05-16 08:57:03.796086045 +0200
++++ opensmtpd/smtpd/newaliases.8	2014-05-16 08:57:03.788085817 +0200
 @@ -48,7 +48,7 @@
  The preferred way of rebuilding the database is with
  .Xr makemap 8 :
@@ -20,9 +20,9 @@ Index: opensmtpd/smtpd/newaliases.8
  .Bl -tag -width "/etc/mail/aliasesXXX" -compact
 Index: opensmtpd/smtpd/smtpd.conf.5
 ===================================================================
---- opensmtpd.orig/smtpd/smtpd.conf.5	2013-12-22 09:36:27.320323266 -0500
-+++ opensmtpd/smtpd/smtpd.conf.5	2013-12-22 09:36:27.320323266 -0500
-@@ -835,7 +835,7 @@
+--- opensmtpd.orig/smtpd/smtpd.conf.5	2014-05-16 08:57:03.796086045 +0200
++++ opensmtpd/smtpd/smtpd.conf.5	2014-05-16 08:57:03.792085931 +0200
+@@ -856,7 +856,7 @@
  %{rcpt.domain[0]}	expands to "e"
  %{rcpt.domain[1]}	expands to "x"
  %{rcpt.domain[8:]}	expands to "org"
