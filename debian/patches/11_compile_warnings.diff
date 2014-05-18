@@ -1,0 +1,29 @@
+Description: Remove excessive warnings about redefined macros
+Author: Benny Baumann <BenBE@geshi.org>
+Bug-Debian: http://bugs.debian.org/747666
+Applied-Upstream: https://github.com/poolpOrg/OpenSMTPD/commit/a54fa301
+---
+This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
+Index: opensmtpd/openbsd-compat/defines.h
+===================================================================
+--- opensmtpd.orig/openbsd-compat/defines.h	2014-05-19 08:52:19.320012254 +0200
++++ opensmtpd/openbsd-compat/defines.h	2014-05-19 08:52:19.316012138 +0200
+@@ -373,13 +373,13 @@
+ #endif
+ 
+ /* user may have set a different path */
+-#if defined(_PATH_MAILDIR) && defined(MAIL_DIRECTORY)
+-# undef _PATH_MAILDIR MAILDIR
+-#endif /* defined(_PATH_MAILDIR) && defined(MAIL_DIRECTORY) */
++#if !defined(_PATH_MAILDIR) && defined(MAILDIR)
++# define _PATH_MAILDIR MAILDIR
++#endif /* !defined(_PATH_MAILDIR) && defined(MAIL_DIRECTORY) */
+ 
+-#ifdef MAIL_DIRECTORY
++#if !defined(_PATH_MAILDIR) && defined(MAIL_DIRECTORY)
+ # define _PATH_MAILDIR MAIL_DIRECTORY
+-#endif
++#endif /* !defined(_PATH_MAILDIR) && defined(MAIL_DIRECTORY) */
+ 
+ #ifdef MAILDIR
+ # undef MAILDIR
