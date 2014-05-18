@@ -1,3 +1,20 @@
+opensmtpd (5.4.2p1-1) unstable; urgency=medium
+
+  * Imported Upstream version 5.4.2p1
+    + Drop 05_no_smtpscript.diff, no longer needed
+    + Drop 08_man_errors.diff, applied upstream
+    + Drop 09_hyphens_in_man.diff, applied upstream
+  * This build against the new openssl package permits opensmtpd to start
+    again (Closes: #748513); the underlying problem has been reported upstream
+  * Install CONFIG-UPDATE.txt.gz (Closes: #741238)
+  * Get rid of unnecessary compile time warnings, 11_compile_warnings.diff
+    (Closes: #747666). Thanks to Benny Baumann for the patch.
+  * Update copyright file with new holders and years
+  * Update lintian overrides with new false positives for hyphens in man
+    pages.
+
+ -- Ryan Kavanagh <rak@debian.org>  Thu, 22 May 2014 21:34:02 +0200
+
 opensmtpd (5.4.1p1-1) unstable; urgency=medium
 
   * New upstream release (Closes: #732989)
