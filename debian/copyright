@@ -3,7 +3,7 @@ Upstream-Name: opensmtpd
 Source: http://www.opensmtpd.org/
 
 Files: *
-Copyright: Copyright (C) 2006-2013 Gilles Chehade <gilles@poolp.org>,<gilles@openbsd.org>
+Copyright: Copyright (C) 2006-2014 Gilles Chehade <gilles@poolp.org>,<gilles@openbsd.org>
            Copyright (C) 2011-2013 Eric Faurot <eric@faurot.net>,<eric@openbsd.org>
            Copyright (C) 2012      Charles Longeau <chl@openbsd.org>
            Copyright (C) 1996      David Mazieres <dm@uun.org>
@@ -24,6 +24,7 @@ Copyright: Copyright (C) 2006-2013 Gilles Chehade <gilles@poolp.org>,<gilles@ope
            Copyright (C) 2013      Ashish Shukla <ashish.is@lostca.se>
            Copyright (C) 2013      Ryan Kavanagh <rak@debian.org>
            Copyright (C) 2013      Sunil Nimmagadda <sunil@sunilnimmagadda.com>
+           Copyright (C) 2014      Michael Neumann <mneumann@ntecs.de>
 License: ISC
 
 
