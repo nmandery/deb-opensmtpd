@@ -1,7 +1,7 @@
 opensmtpd: hyphen-used-as-minus-sign usr/share/man/man5/aliases.5.gz:30
 opensmtpd: hyphen-used-as-minus-sign usr/share/man/man5/smtpd.conf.5.gz:294
-opensmtpd: hyphen-used-as-minus-sign usr/share/man/man5/smtpd.conf.5.gz:555
-opensmtpd: hyphen-used-as-minus-sign usr/share/man/man8/smtpctl.8.gz:323
+opensmtpd: hyphen-used-as-minus-sign usr/share/man/man5/smtpd.conf.5.gz:570
+opensmtpd: hyphen-used-as-minus-sign usr/share/man/man8/smtpctl.8.gz:326
 opensmtpd: hyphen-used-as-minus-sign usr/share/man/man8/smtpd.8.gz:96
 opensmtpd: non-standard-dir-perm var/spool/smtpd/ 0711 != 0755
 opensmtpd: non-standard-dir-perm var/spool/smtpd/offline/ 1777 != 0755
