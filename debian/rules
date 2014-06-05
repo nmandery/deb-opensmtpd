@@ -1,5 +1,10 @@
 #!/usr/bin/make -f
 
+# fortify detects a non-existent buffer overflow when processing the offline
+# queue at startup at the "realpath" call. Disabling it after discussion with
+# upstream.
+export DEB_BUILD_MAINT_OPTIONS=hardening=-fortify
+
 %:
 	dh $@ --with autoreconf
 
