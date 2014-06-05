@@ -1,3 +1,10 @@
+opensmtpd (5.4.2p1-2) unstable; urgency=medium
+
+  * Disable fortify, fixes sigabort on buffer overflow false positive
+  * Fix broken SSL version check, 12_ssl_check.diff (Closes: #748150)
+
+ -- Ryan Kavanagh <rak@debian.org>  Wed, 11 Jun 2014 21:30:20 +0200
+
 opensmtpd (5.4.2p1-1) unstable; urgency=medium
 
   * Imported Upstream version 5.4.2p1
