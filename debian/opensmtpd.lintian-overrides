@@ -5,3 +5,19 @@ opensmtpd: hyphen-used-as-minus-sign usr/share/man/man8/smtpctl.8.gz:326
 opensmtpd: hyphen-used-as-minus-sign usr/share/man/man8/smtpd.8.gz:96
 opensmtpd: non-standard-dir-perm var/spool/smtpd/ 0711 != 0755
 opensmtpd: non-standard-dir-perm var/spool/smtpd/offline/ 1777 != 0755
+opensmtpd: hardening-no-fortify-functions usr/lib/*/opensmtpd/encrypt
+opensmtpd: hardening-no-fortify-functions usr/lib/*/opensmtpd/filter-dnsbl
+opensmtpd: hardening-no-fortify-functions usr/lib/*/opensmtpd/filter-monkey
+opensmtpd: hardening-no-fortify-functions usr/lib/*/opensmtpd/filter-stub
+opensmtpd: hardening-no-fortify-functions usr/lib/*/opensmtpd/filter-trace
+opensmtpd: hardening-no-fortify-functions usr/lib/*/opensmtpd/mail.local
+opensmtpd: hardening-no-fortify-functions usr/lib/*/opensmtpd/queue-null
+opensmtpd: hardening-no-fortify-functions usr/lib/*/opensmtpd/queue-ram
+opensmtpd: hardening-no-fortify-functions usr/lib/*/opensmtpd/queue-stub
+opensmtpd: hardening-no-fortify-functions usr/lib/*/opensmtpd/scheduler-ram
+opensmtpd: hardening-no-fortify-functions usr/lib/*/opensmtpd/scheduler-stub
+opensmtpd: hardening-no-fortify-functions usr/lib/*/opensmtpd/table-passwd
+opensmtpd: hardening-no-fortify-functions usr/lib/*/opensmtpd/table-stub
+opensmtpd: hardening-no-fortify-functions usr/sbin/makemap
+opensmtpd: hardening-no-fortify-functions usr/sbin/smtpctl
+opensmtpd: hardening-no-fortify-functions usr/sbin/smtpd
