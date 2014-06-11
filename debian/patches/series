@@ -4,3 +4,4 @@
 07_automake_missing_options.diff
 10_smtpd.conf.diff
 11_compile_warnings.diff
+12_ssl_check.diff

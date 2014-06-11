@@ -1,0 +1,132 @@
+Description: Fix broken SSL version check
+Origin: https://github.com/poolpOrg/OpenSMTPD/commit/452d687
+        https://github.com/poolpOrg/OpenSMTPD/commit/61c434a
+Bug: https://github.com/poolpOrg/OpenSMTPD/issues/462
+Bug: https://github.com/poolpOrg/OpenSMTPD/issues/454
+Bug-Debian: https://bugs.debian.org/748150
+---
+This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
+Index: opensmtpd/openbsd-compat/entropy.c
+===================================================================
+--- opensmtpd.orig/openbsd-compat/entropy.c	2014-06-12 09:05:08.745515162 +0200
++++ opensmtpd/openbsd-compat/entropy.c	2014-06-12 09:05:08.741515049 +0200
+@@ -209,6 +209,9 @@
+ #ifndef OPENSSL_PRNG_ONLY
+ 	unsigned char buf[RANDOM_SEED_SIZE];
+ #endif
++	u_long	mask;
++	int	error;
++
+ 	/*
+ 	 * OpenSSL version numbers: MNNFFPPS: major minor fix patch status
+ 	 * We match major, minor, fix and status (not patch) for <1.0.0.
+@@ -216,11 +219,17 @@
+ 	 * allow 1.0.1 to work with 1.0.0). Going backwards is only allowed
+ 	 * within a patch series.
+ 	 */
+-	u_long version_mask = SSLeay() >= 0x1000000f ?  ~0xffff0L : ~0xff0L;
+-	if (((SSLeay() ^ OPENSSL_VERSION_NUMBER) & version_mask) ||
+-	    (SSLeay() >> 12) < (OPENSSL_VERSION_NUMBER >> 12))
+-		fatal("OpenSSL version mismatch. Built against %lx, you "
+-		    "have %lx", (u_long)OPENSSL_VERSION_NUMBER, SSLeay());
++	error = 0;
++	mask = SSLeay() >= 0x1000000f ?  0xfff00000L : 0xfffff00fL;
++	if (SSLeay() >= 0x1000000f)
++		if ((SSLeay() & 0xfffffff0L) < (OPENSSL_VERSION_NUMBER & 0xfffffff0L))
++			error = 1;
++	if ((SSLeay() ^ OPENSSL_VERSION_NUMBER) & mask || (SSLeay() >> 12) < (OPENSSL_VERSION_NUMBER >> 12))
++		error = 1;
++	if (error)
++		fatalx("OpenSSL version mismatch. Built against %lx, you have %lx\n",
++		    (u_long)OPENSSL_VERSION_NUMBER, SSLeay());
++
+ 
+ #ifndef OPENSSL_PRNG_ONLY
+ 	if (RAND_status() == 1) {
+Index: opensmtpd/smtpd/log.c
+===================================================================
+--- opensmtpd.orig/smtpd/log.c	2014-06-12 09:05:08.745515162 +0200
++++ opensmtpd/smtpd/log.c	2014-06-12 09:05:08.741515049 +0200
+@@ -160,24 +160,45 @@
+ 	}
+ }
+ 
+-void
+-fatal(const char *emsg)
++static void
++fatal_arg(const char *emsg, va_list ap)
+ {
++#define	FATALBUFSIZE	1024
++	static char	ebuffer[FATALBUFSIZE];
++
+ 	if (emsg == NULL)
+-		logit(LOG_CRIT, "fatal: %s", strerror(errno));
+-	else
+-		if (errno)
+-			logit(LOG_CRIT, "fatal: %s: %s",
+-			    emsg, strerror(errno));
++		(void)strlcpy(ebuffer, strerror(errno), sizeof ebuffer);
++	else {
++		if (errno) {
++			(void)vsnprintf(ebuffer, sizeof ebuffer, emsg, ap);
++			(void)strlcat(ebuffer, ": ", sizeof ebuffer);
++			(void)strlcat(ebuffer, strerror(errno), sizeof ebuffer);
++		}
+ 		else
+-			logit(LOG_CRIT, "fatal: %s", emsg);
++			(void)vsnprintf(ebuffer, sizeof ebuffer, emsg, ap);
++	}
++	logit(LOG_CRIT, "fatal: %s", ebuffer);
++}
+ 
++void
++fatal(const char *emsg, ...)
++{
++	va_list	ap;
++
++	va_start(ap, emsg);
++	fatal_arg(emsg, ap);
++	va_end(ap);
+ 	exit(1);
+ }
+ 
+ void
+-fatalx(const char *emsg)
++fatalx(const char *emsg, ...)
+ {
++	va_list	ap;
++
+ 	errno = 0;
+-	fatal(emsg);
++	va_start(ap, emsg);
++	fatal_arg(emsg, ap);
++	va_end(ap);
++	exit(1);
+ }
+Index: opensmtpd/smtpd/log.h
+===================================================================
+--- opensmtpd.orig/smtpd/log.h	2014-06-12 09:05:08.745515162 +0200
++++ opensmtpd/smtpd/log.h	2014-06-12 09:05:08.741515049 +0200
+@@ -30,5 +30,7 @@
+     __attribute__((format (printf, 1, 2)));
+ void		log_trace(int, const char *, ...)
+     __attribute__((format (printf, 2, 3)));
+-__dead void	fatal(const char *);
+-__dead void	fatalx(const char *);
++__dead void	fatal(const char *, ...)
++    __attribute__((format (printf, 1, 2)));
++__dead void	fatalx(const char *, ...)
++    __attribute__((format (printf, 1, 2)));
+Index: opensmtpd/smtpd/mproc.c
+===================================================================
+--- opensmtpd.orig/smtpd/mproc.c	2014-06-12 09:05:08.745515162 +0200
++++ opensmtpd/smtpd/mproc.c	2014-06-12 09:05:08.741515049 +0200
+@@ -428,7 +428,7 @@
+ 	    proc_name(smtpd_process),
+ 	    imsg_to_str(current->hdr.type),
+ 	    error);
+-	fatalx(buf);
++	fatalx("%s", buf);
+ }
+ 
+ void
