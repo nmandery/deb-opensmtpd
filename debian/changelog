@@ -1,3 +1,11 @@
+opensmtpd (5.4.2p1-3) unstable; urgency=medium
+
+  * Specify location of CA certificates when running ./configure; fixes broken
+    certificate verification when establishing encrypted connection (Closes:
+    #756069)
+
+ -- Ryan Kavanagh <rak@debian.org>  Sat, 26 Jul 2014 12:08:25 +0200
+
 opensmtpd (5.4.2p1-2) unstable; urgency=medium
 
   * Disable fortify, fixes sigabort on buffer overflow false positive
