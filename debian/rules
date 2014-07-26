@@ -15,7 +15,8 @@ override_dh_auto_configure:
 	    --with-maildir=/var/mail \
 	    --with-privsep-path=/var/lib/opensmtpd/empty \
 	    --with-privsep-user=opensmtpd \
-	    --with-queue-user=opensmtpq
+	    --with-queue-user=opensmtpq \
+	    --with-ca-file=/etc/ssl/certs/ca-certificates.crt
 
 override_dh_installchangelogs:
 	dh_installchangelogs debian/upstream_changelog.txt
