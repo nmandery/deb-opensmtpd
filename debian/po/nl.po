@@ -1,0 +1,96 @@
+# Dutch translation of opensmtpd debconf templates.
+# This file is distributed under the same license as the opensmtpd package;
+# see the file debian/copyright for further copyright details.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+# Please do not translate the string "example.org", this is a
+# registered example second level domain name (RFC2606).
+# Frans Spiesschaert <Frans.Spiesschaert@yucom.be>, 2014.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: opensmtpd\n"
+"Report-Msgid-Bugs-To: opensmtpd@packages.debian.org\n"
+"POT-Creation-Date: 2013-08-27 12:02-0400\n"
+"PO-Revision-Date: 2014-10-17 15:21+0200\n"
+"Last-Translator: Frans Spiesschaert <Frans.Spiesschaert@yucom.be>\n"
+"Language-Team: Debian Dutch l10n Team <debian-l10n-dutch@lists.debian.org>\n"
+"Language: nl\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#. Type: string
+#. Description
+#: ../templates:1001
+msgid "System mail name:"
+msgstr "\"mail name\" van dit systeem:"
+
+#. Type: string
+#. Description
+#: ../templates:1001
+msgid ""
+"The \"mail name\" is used as the domain name in the email address for "
+"messages that only have a \"local part\" (such as <jrandomuser> or <root>). "
+"It should be a fully qualified domain name (FQDN) that you are entitled to "
+"use."
+msgstr ""
+"De \"mail name\" wordt bij berichten gebruikt als domeinnaam wanneer de e-"
+"mailadressen enkel een \"lokaal gedeelte\" (zoals <jmodaalgebruiker> of "
+"<root>) bevatten. Het moet om een \"volledig gekwalificeerde domeinnaam"
+"\" (FQDN) gaan waarvan u het gebruiksrecht bezit."
+
+#. Type: string
+#. Description
+#: ../templates:1001
+msgid ""
+"For instance, to allow the local host to generate mail with addresses such "
+"as <jrandomuser@example.org>, set the system mail name to \"example.org\"."
+msgstr ""
+"Om bijvoorbeeld de lokale computer in staat te stellen mail te produceren "
+"met adressen zoals <jmodaalgebruiker@example.org>, moet u de \"mail name\" "
+"van het systeem instellen op \"example.org\"."
+
+#. Type: string
+#. Description
+#: ../templates:1001
+msgid ""
+"This mail name is used as the hostname in the SMTP greeting banner, and will "
+"also be used by other programs."
+msgstr ""
+"Deze \"mail name\" wordt gebruikt als de computernaam in de SMTP-"
+"begroetingsbanier, en wordt ook door andere programma's gebruikt."
+
+#. Type: string
+#. Description
+#: ../templates:2001
+msgid "Root and postmaster mail recipient:"
+msgstr "Ontvanger van de berichten voor root en postmaster:"
+
+#. Type: string
+#. Description
+#: ../templates:2001
+msgid ""
+"Mail for the \"postmaster\", \"root\", and other system accounts should be "
+"redirected to the user account(s) of the actual system administrator(s)."
+msgstr ""
+"Mail voor \"postmaster\", \"root\" en andere systeemaccounts zou omgeleid "
+"moeten worden naar het/de gebruikersaccount(s) van de huidige "
+"systeembeheerder(s)."
+
+#. Type: string
+#. Description
+#: ../templates:2001
+msgid ""
+"Please enter a comma-separated list of the usernames of the intended "
+"recipients. Leave this field blank to not create an alias for \"root\"; in "
+"this case, the root account will receive mail addressed to \"postmaster\" "
+"and other system accounts, assuming aliases for these accounts do not "
+"already exist."
+msgstr ""
+"Gelieve een met komma's gescheiden lijst van gebruikersnamen in te geven van "
+"de bedoelde bestemmelingen. Laat dit veld leeg om geen alias aan te maken "
+"voor \"root\". In dat geval zal het account van root de post ontvangen die "
+"aan \"postmaster\" en andere systeemaccounts geadresseerd is, in de "
+"veronderstelling dat er voor die accounts niet reeds een alias bestaat."
