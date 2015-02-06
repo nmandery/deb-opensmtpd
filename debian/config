@@ -10,7 +10,7 @@ getalias () {
     sed -n "s/^${1}\s*:\s*\([^\s*#.*]*\)\s*#\?.*/\1/p" /etc/aliases
 }
 
-db_fget opensmtpd/mailname seen
+db_fget opensmtpd/mailname seen || true
 # Have we previously configured this variable?
 if [ "${RET}" = "true" ]; then
     # Update the debconf value if it has changed
@@ -47,7 +47,7 @@ db_fset opensmtpd/mailname changed false
 db_go || true
 
 # Update the debconf value if it has changed
-db_fget opensmtpd/root_address seen
+db_fget opensmtpd/root_address seen || true
 if [ "${RET}" = "false" ]; then
     # This is the first time configuring this question; we mark it as such so
     # that we know to create the postmaster alias to root

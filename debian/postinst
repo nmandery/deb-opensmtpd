@@ -93,7 +93,7 @@ update_alias () {
 }
 
 
-db_fget opensmtpd/mailname changed
+db_fget opensmtpd/mailname changed || true
 # Has the user reconfigured / updated the debconf value?
 if [ "${RET}" = "true" ]; then
     db_get opensmtpd/mailname
@@ -135,12 +135,12 @@ if [ ! -f /etc/aliases ]; then
 fi
 
 
-db_fget opensmtpd/root_address changed
+db_fget opensmtpd/root_address changed || true
 if [ "${RET}" = "true" ]; then
     update_alias "root" "${ROOT_ADDRESS}"
 fi
 db_fset opensmtpd/root_address changed false
-db_fget opensmtpd/root_address first
+db_fget opensmtpd/root_address first || true
 if [ "${RET}" = "true" -a ${ROOT_ADDRESS} ]; then
     # It's our first time configuring aliases; create a postmaster alias as
     # promised in the template if it doesn't already exist. Use ed to insert it
