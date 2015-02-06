@@ -1,3 +1,13 @@
+opensmtpd (5.4.2p1-4) unstable; urgency=medium
+
+  * Don't abort on unseen flags in debconf (Closes: #770939)
+  * Added Dutch translations.
+    Thanks to Frans Spiesschaert <Frans.Spiesschaert@yucom.be>
+  * Bump standards version to 3.9.6
+  * Updated debian/copyright to conform to dep5
+
+ -- Ryan Kavanagh <rak@debian.org>  Fri, 06 Feb 2015 13:04:56 -0500
+
 opensmtpd (5.4.2p1-3) unstable; urgency=medium
 
   * Specify location of CA certificates when running ./configure; fixes broken
