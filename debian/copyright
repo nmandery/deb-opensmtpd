@@ -62,7 +62,7 @@ License: public-domain
 
 Files: smtpd/ssl_privsep.c
 Copyright: Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
-License: BSD-4-clause with additional restrictions
+License: BSD-4-clause and additional-restrictions
  All rights reserved.
  .
  This package is an SSL implementation written
@@ -210,7 +210,7 @@ License: BSD-3-clause
 
 Files: openbsd-compat/fparseln.c
 Copyright: Copyright (C) 1997 Christos Zoulas
-License: BSD-3-clause with additional restrictions
+License: BSD-3-clause and additional-restrictions
  Redistribution and use in source and binary forms, with or without
  modification, are permitted provided that the following conditions
  are met:
@@ -348,7 +348,7 @@ License: GPL-3+ with Autoconf exception
 
 Files: install-sh
 Copyright: Copyright (C) 1994 X Consortium
-License: Expat with additional restrictions and public domain
+License: Expat and additional-restrictions and public-domain
  Permission is hereby granted, free of charge, to any person obtaining a
  copy of this software and associated documentation files (the
  "Software"), to deal in the Software without restriction, including
