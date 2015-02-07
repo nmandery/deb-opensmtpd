@@ -1,7 +1,7 @@
 opensmtpd (5.4.2p1-4) unstable; urgency=medium
 
   * Don't abort on unseen flags in debconf (Closes: #770939)
-  * Added Dutch translations.
+  * Added Dutch translations. (Closes: #767303)
     Thanks to Frans Spiesschaert <Frans.Spiesschaert@yucom.be>
   * Bump standards version to 3.9.6
   * Updated debian/copyright to conform to dep5
