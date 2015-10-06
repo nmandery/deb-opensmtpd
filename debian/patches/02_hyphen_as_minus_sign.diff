@@ -22,12 +22,12 @@ Index: opensmtpd/smtpd/smtpd.conf.5
 ===================================================================
 --- opensmtpd.orig/smtpd/smtpd.conf.5	2014-05-16 08:57:03.796086045 +0200
 +++ opensmtpd/smtpd/smtpd.conf.5	2014-05-16 08:57:03.792085931 +0200
-@@ -856,7 +856,7 @@
- %{rcpt.domain[0]}	expands to "e"
- %{rcpt.domain[1]}	expands to "x"
- %{rcpt.domain[8:]}	expands to "org"
--%{rcpt.domain[-3:]}	expands to "org"
-+%{rcpt.domain[\-3:]}	expands to "org"
- %{rcpt.domain[0:6]}	expands to "example"
- %{rcpt.domain[0:-4]}	expands to "example"
- .Ed
+@@ -938,7 +938,7 @@
+ .It %{rcpt.domain[0]}    Ta expands to Dq e
+ .It %{rcpt.domain[1]}    Ta expands to Dq x
+ .It %{rcpt.domain[8:]}   Ta expands to Dq org
+-.It %{rcpt.domain[-3:]}  Ta expands to Dq org
++.It %{rcpt.domain[\-3:]}  Ta expands to Dq org
+ .It %{rcpt.domain[0:6]}  Ta expands to Dq example
+ .It %{rcpt.domain[0:-4]} Ta expands to Dq example
+ .El

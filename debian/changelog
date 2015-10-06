@@ -1,3 +1,11 @@
+opensmtpd (5.7.3p1-1) unstable; urgency=medium
+
+  * Imported Upstream version 5.4.2p1
+    + Drop 11_compile_warnings.diff, no longer needed
+    + Drop 12_ssl_check.diff.diff, no longer needed
+
+ -- Nico Mandery <nico@nmandery.net>  Tue, 06 Oct 2015 18:03:10 +0100
+
 opensmtpd (5.4.2p1-4) unstable; urgency=medium
 
   * Don't abort on unseen flags in debconf (Closes: #770939)

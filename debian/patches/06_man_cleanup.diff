@@ -8,37 +8,7 @@ Index: opensmtpd/smtpd/smtpd.8
 ===================================================================
 --- opensmtpd.orig/smtpd/smtpd.8	2013-12-23 09:59:48.192217636 -0500
 +++ opensmtpd/smtpd/smtpd.8	2013-12-23 10:00:48.134227393 -0500
-@@ -87,29 +87,6 @@
- .It Fl v
- Produce more verbose output.
- .El
--.Pp
--If you are running a BSD Operating System,
--you should use and modify 
--.Xr mailwrapper 8
--settings by editing
--.Pa /etc/mailer.conf :
--.Bd -literal -offset indent
--sendmail	/usr/sbin/smtpctl
--send-mail	/usr/sbin/smtpctl
--mailq		/usr/sbin/smtpctl
--makemap		/usr/libexec/smtpd/makemap
--newaliases	/usr/libexec/smtpd/makemap
--.Ed
--.Pp
--Disable the sendmail clientmqueue entry in
--.Xr crontab 1 .
--.Pp
--Rebuild the aliases database,
--and enable the daemon:
--.Bd -literal -offset indent
--# newaliases
--# /etc/rc.d/smtpd start
--.Ed
- .Sh FILES
- .Bl -tag -width "/var/run/smtpd.sockXXX" -compact
- .It Pa /etc/mail/mailname
-@@ -125,7 +102,6 @@
+@@ -137,7 +137,6 @@
  .El
  .Sh SEE ALSO
  .Xr smtpd.conf 5 ,
@@ -46,21 +16,3 @@ Index: opensmtpd/smtpd/smtpd.8
  .Xr smtpctl 8
  .Sh STANDARDS
  .Rs
-@@ -139,17 +115,3 @@
- .Nm
- program first appeared in
- .Ox 4.6 .
--.Sh CAVEATS
--Because
--.Xr sendmail 8
--is still the de facto
--.Ox
--mailer,
--.Nm
--versions of
--.Xr aliases 5 ,
--.Xr forward 5 ,
--.Xr makemap 8 ,
--and
--.Xr newaliases 8
--are not currently installed.

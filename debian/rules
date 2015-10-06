@@ -16,6 +16,7 @@ override_dh_auto_configure:
 	    --with-privsep-path=/var/lib/opensmtpd/empty \
 	    --with-privsep-user=opensmtpd \
 	    --with-queue-user=opensmtpq \
+	    --enable-table-db \
 	    --with-ca-file=/etc/ssl/certs/ca-certificates.crt
 
 override_dh_installchangelogs:
