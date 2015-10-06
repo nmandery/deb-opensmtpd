@@ -27,6 +27,7 @@
 #include <imsg.h>
 #include <stdio.h>
 #include <string.h>
+#include <limits.h>
 
 #include "log.h"
 #include "smtpd.h"
@@ -51,6 +52,9 @@ stat_increment(const char *key, size_t count)
 {
 	struct stat_value	*value;
 
+	if (count == 0)
+		return;
+
 	value = stat_counter(count);
 
 	m_create(p_control, IMSG_STAT_INCREMENT, 0, 0, -1);
@@ -63,6 +67,9 @@ void
 stat_decrement(const char *key, size_t count)
 {
 	struct stat_value	*value;
+
+	if (count == 0)
+		return;
 
 	value = stat_counter(count);
 

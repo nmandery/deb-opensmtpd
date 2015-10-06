@@ -34,6 +34,7 @@
 #include <imsg.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <limits.h>
 #include <string.h>
 
 #include "smtpd.h"
@@ -43,14 +44,14 @@
 static int table_static_config(struct table *);
 static int table_static_update(struct table *);
 static void *table_static_open(struct table *);
-static int table_static_lookup(void *, const char *, enum table_service,
+static int table_static_lookup(void *, struct dict *, const char *, enum table_service,
     union lookup *);
-static int table_static_fetch(void *, enum table_service, union lookup *);
+static int table_static_fetch(void *, struct dict *, enum table_service, union lookup *);
 static void  table_static_close(void *);
 static int table_static_parse(struct table *, const char *, enum table_type);
 
 struct table_backend table_backend_static = {
-	K_ALIAS|K_CREDENTIALS|K_DOMAIN|K_NETADDR|K_USERINFO|K_SOURCE|K_MAILADDR|K_ADDRNAME,
+	K_ALIAS|K_CREDENTIALS|K_DOMAIN|K_NETADDR|K_USERINFO|K_SOURCE|K_MAILADDR|K_ADDRNAME|K_MAILADDRMAP,
 	table_static_config,
 	table_static_open,
 	table_static_update,
@@ -191,7 +192,7 @@ table_static_close(void *hdl)
 }
 
 static int
-table_static_lookup(void *hdl, const char *key, enum table_service service,
+table_static_lookup(void *hdl, struct dict *params, const char *key, enum table_service service,
     union lookup *lk)
 {
 	struct table   *m  = hdl;
@@ -237,7 +238,7 @@ table_static_lookup(void *hdl, const char *key, enum table_service service,
 }
 
 static int
-table_static_fetch(void *hdl, enum table_service service, union lookup *lk)
+table_static_fetch(void *hdl, struct dict *params, enum table_service service, union lookup *lk)
 {
 	struct table   *t = hdl;
 	const char     *k;

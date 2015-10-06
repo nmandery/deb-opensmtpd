@@ -26,22 +26,25 @@ smtpd_SOURCES+=		$(smtpd_srcdir)/dns.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/esc.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/envelope.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/expand.c
+smtpd_SOURCES+=		$(smtpd_srcdir)/filter.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/forward.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/iobuf.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/ioev.c
+smtpd_SOURCES+=		$(smtpd_srcdir)/libressl.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/limit.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/lka.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/lka_session.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/log.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/mda.c
-smtpd_SOURCES+=		$(smtpd_srcdir)/mfa.c
-smtpd_SOURCES+=		$(smtpd_srcdir)/mfa_session.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/mproc.c
+smtpd_SOURCES+=		$(smtpd_srcdir)/mailaddr.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/mta.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/mta_session.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/parse.y
+smtpd_SOURCES+=		$(smtpd_srcdir)/pony.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/queue.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/queue_backend.c
+smtpd_SOURCES+=		$(smtpd_srcdir)/rfc2822.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/ruleset.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/runq.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/scheduler.c
@@ -50,7 +53,6 @@ smtpd_SOURCES+=		$(smtpd_srcdir)/smtp.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/smtp_session.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/smtpd.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/ssl.c
-smtpd_SOURCES+=		$(smtpd_srcdir)/ssl_privsep.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/ssl_smtpd.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/stat_backend.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/table.c
@@ -69,7 +71,9 @@ smtpd_SOURCES+=		$(smtpd_srcdir)/delivery_maildir.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/delivery_mbox.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/delivery_mda.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/delivery_lmtp.c
+if HAVE_DB_API
 smtpd_SOURCES+=		$(smtpd_srcdir)/table_db.c
+endif
 smtpd_SOURCES+=		$(smtpd_srcdir)/table_getpwnam.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/table_proc.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/table_static.c
@@ -82,32 +86,22 @@ smtpd_SOURCES+=		$(smtpd_srcdir)/scheduler_proc.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/scheduler_ramqueue.c
 smtpd_SOURCES+=		$(smtpd_srcdir)/stat_ramstat.c
 
-# resolver
-smtpd_SOURCES+=		$(asr_srcdir)/asr.c			\
-			$(asr_srcdir)/asr_debug.c			\
-			$(asr_srcdir)/asr_utils.c			\
-			$(asr_srcdir)/gethostnamadr_async.c	\
-			$(asr_srcdir)/res_send_async.c		\
-			$(asr_srcdir)/getaddrinfo_async.c		\
-			$(asr_srcdir)/getnameinfo_async.c		\
-			$(asr_srcdir)/res_search_async.c
 
-smtpd_CFLAGS=		-DIO_SSL -DASR_OPT_THREADSAFE=0
+smtpd_CFLAGS=		-DIO_SSL
 smtpd_CFLAGS+=		-DCA_FILE=\"$(CA_FILE)\"
 
 AM_CPPFLAGS=		-I$(smtpd_srcdir)	\
-			-I$(compat_srcdir)	\
-			-I$(asr_srcdir)
+			-I$(compat_srcdir)
 
 LIBCOMPAT=		$(top_builddir)/openbsd-compat/libopenbsd-compat.a
 
-LDADD=			$(LIBCOMPAT)
+LDADD=			$(LIBCOMPAT) $(DB_LIB) $(ASR_LIB)
 
 # need to define _GNU_SOURCE to get:
 # EAI_NODATA defined
 # {v,}asprintf
 # setres{g,u}id
-CFLAGS+=		-D_GNU_SOURCE
+CFLAGS+=		-D_GNU_SOURCE -DNEED_EVENT_ASR_RUN
 CPPFLAGS=		-I$(srcdir) @CPPFLAGS@ $(PATHS) @DEFS@
 
 MANPAGES=		aliases.5.out forward.5.out smtpd.8.out	\
@@ -136,9 +130,6 @@ EXTRA_DIST+=		$(smtpd_srcdir)/parser.h
 
 EXTRA_DIST+=		$(backends_srcdir)/queue_utils.h
 EXTRA_DIST+=		$(filters_srcdir)/asr_event.h
-
-EXTRA_DIST+=		$(asr_srcdir)/asr.h
-EXTRA_DIST+=		$(asr_srcdir)/asr_private.h
 
 PATHSUBS=		-e 's|/etc/mail/|$(sysconfdir)/|g'			\
 			-e 's|/var/run/smtpd.sock|$(sockdir)/smtpd.sock|g'

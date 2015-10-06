@@ -1,1 +1,5 @@
-SUBDIRS =		smtpd smtpctl makemap backends filters
+SUBDIRS =	smtpd
+SUBDIRS	+=	smtpctl
+if HAVE_DB_API
+SUBDIRS	+=	makemap
+endif

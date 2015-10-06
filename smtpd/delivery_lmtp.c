@@ -1,4 +1,4 @@
-/* $OpenBSD$ */
+/* $OpenBSD: delivery_lmtp.c,v 1.6 2014/04/19 17:24:59 gilles Exp $ */
 
 /*
  * Copyright (c) 2013 Ashish SHUKLA <ashish.is@lostca.se>
@@ -19,9 +19,9 @@
 #include "includes.h"
 
 #include <sys/types.h>
+#include <sys/socket.h>
 #include <sys/queue.h>
 #include <sys/tree.h>
-#include <sys/socket.h>
 #include <sys/un.h>
 
 #include <ctype.h>
@@ -30,10 +30,12 @@
 #include <fcntl.h>
 #include <imsg.h>
 #include <paths.h>
+#include <netdb.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <limits.h>
 
 #include "smtpd.h"
 #include "log.h"
@@ -118,7 +120,12 @@ unix_socket(char *path) {
 	 }
 
 	 addr.sun_family = AF_UNIX;
-	 strlcpy(addr.sun_path, path, sizeof(addr.sun_path));
+	 if (strlcpy(addr.sun_path, path, sizeof(addr.sun_path))
+	     >= sizeof(addr.sun_path)) {
+		 warnx("socket path too long");
+		 close(s);
+		 return -1;
+	 }
 
 	 if (connect(s, (struct sockaddr*) &addr, sizeof(addr)) == -1) {
 		 warn("connect");
@@ -153,7 +160,7 @@ delivery_lmtp_open(struct deliver *deliver)
 	 while (!feof(fp) && !ferror(fp) && state != LMTP_BYE) {
 		 buffer = lmtp_getline(fp);
 		 if (buffer == NULL)
-			 err(1, "No input received");
+			 errx(1, "No input received");
 
 		 switch (state) {
 		 case LMTP_BANNER:

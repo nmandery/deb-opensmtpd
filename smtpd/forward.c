@@ -37,6 +37,7 @@
 #include <libutil.h>
 #endif
 #include <unistd.h>
+#include <limits.h>
 
 #include "smtpd.h"
 #include "log.h"
@@ -90,7 +91,7 @@ forwards_get(int fd, struct expand *expand)
 		}
 		free(line);
 	}
-	       
+
 	ret = expand->nb_nodes > save ? 1 : 0;
 
 end:

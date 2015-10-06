@@ -1,4 +1,4 @@
-/*	$OpenBSD$	*/
+/*	$OpenBSD: envelope.c,v 1.29 2014/04/19 12:30:54 gilles Exp $	*/
 
 /*
  * Copyright (c) 2013 Eric Faurot <eric@openbsd.org>
@@ -37,6 +37,7 @@
 #include <inttypes.h>
 #include <libgen.h>
 #include <pwd.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -66,7 +67,7 @@ envelope_set_errormsg(struct envelope *e, char *fmt, ...)
 		err(1, "vsnprintf");
 
 	if ((size_t)ret >= sizeof(e->errorline))
-		strlcpy(e->errorline + (sizeof(e->errorline) - 4), "...", 4);
+		(void)strlcpy(e->errorline + (sizeof(e->errorline) - 4), "...", 4);
 }
 
 void
@@ -215,11 +216,13 @@ envelope_dump_buffer(const struct envelope *ep, char *dest, size_t len)
 		envelope_ascii_dump(ep, &dest, &len, "mda-method");
 		envelope_ascii_dump(ep, &dest, &len, "mda-user");
 		envelope_ascii_dump(ep, &dest, &len, "mda-usertable");
+		envelope_ascii_dump(ep, &dest, &len, "mda-delivery-user");
 		break;
 	case D_MTA:
 		envelope_ascii_dump(ep, &dest, &len, "mta-relay");
 		envelope_ascii_dump(ep, &dest, &len, "mta-relay-auth");
 		envelope_ascii_dump(ep, &dest, &len, "mta-relay-cert");
+		envelope_ascii_dump(ep, &dest, &len, "mta-relay-ca");
 		envelope_ascii_dump(ep, &dest, &len, "mta-relay-flags");
 		envelope_ascii_dump(ep, &dest, &len, "mta-relay-heloname");
 		envelope_ascii_dump(ep, &dest, &len, "mta-relay-helotable");
@@ -492,6 +495,10 @@ ascii_load_field(const char *field, struct envelope *ep, char *buf)
 		return ascii_load_string(ep->agent.mda.usertable, buf,
 		    sizeof ep->agent.mda.usertable);
 
+	if (strcasecmp("mda-delivery-user", field) == 0)
+		return ascii_load_string(ep->agent.mda.delivery_user, buf,
+		    sizeof ep->agent.mda.delivery_user);
+
 	if (strcasecmp("mta-relay", field) == 0) {
 		int ret;
 		uint16_t flags = ep->agent.mta.relay.flags;
@@ -509,6 +516,10 @@ ascii_load_field(const char *field, struct envelope *ep, char *buf)
 	if (strcasecmp("mta-relay-cert", field) == 0)
 		return ascii_load_string(ep->agent.mta.relay.pki_name, buf,
 		    sizeof ep->agent.mta.relay.pki_name);
+
+	if (strcasecmp("mta-relay-ca", field) == 0)
+		return ascii_load_string(ep->agent.mta.relay.ca_name, buf,
+		    sizeof ep->agent.mta.relay.ca_name);
 
 	if (strcasecmp("mta-relay-flags", field) == 0)
 		return ascii_load_mta_relay_flags(&ep->agent.mta.relay.flags, buf);
@@ -687,12 +698,12 @@ ascii_dump_flags(enum envelope_flags flags, char *buf, size_t len)
 			cpylen = strlcat(buf, "authenticated", len);
 		if (flags & EF_BOUNCE) {
 			if (buf[0] != '\0')
-				strlcat(buf, " ", len);
+				(void)strlcat(buf, " ", len);
 			cpylen = strlcat(buf, "bounce", len);
 		}
 		if (flags & EF_INTERNAL) {
 			if (buf[0] != '\0')
-				strlcat(buf, " ", len);
+				(void)strlcat(buf, " ", len);
 			cpylen = strlcat(buf, "internal", len);
 		}
 	}
@@ -715,12 +726,12 @@ ascii_dump_mta_relay_flags(uint16_t flags, char *buf, size_t len)
 	if (flags) {
 		if (flags & F_TLS_VERIFY) {
 			if (buf[0] != '\0')
-				strlcat(buf, " ", len);
+				(void)strlcat(buf, " ", len);
 			cpylen = strlcat(buf, "verify", len);
 		}
 		if (flags & F_STARTTLS) {
 			if (buf[0] != '\0')
-				strlcat(buf, " ", len);
+				(void)strlcat(buf, " ", len);
 			cpylen = strlcat(buf, "tls", len);
 		}
 	}
@@ -819,6 +830,9 @@ ascii_dump_field(const char *field, const struct envelope *ep,
 	if (strcasecmp(field, "mda-user") == 0)
 		return ascii_dump_string(ep->agent.mda.username, buf, len);
 
+	if (strcasecmp(field, "mda-delivery-user") == 0)
+		return ascii_dump_string(ep->agent.mda.delivery_user, buf, len);
+
 	if (strcasecmp(field, "mda-usertable") == 0)
 		return ascii_dump_string(ep->agent.mda.usertable, buf, len);
 
@@ -834,6 +848,10 @@ ascii_dump_field(const char *field, const struct envelope *ep,
 
 	if (strcasecmp(field, "mta-relay-cert") == 0)
 		return ascii_dump_string(ep->agent.mta.relay.pki_name,
+		    buf, len);
+
+	if (strcasecmp(field, "mta-relay-ca") == 0)
+		return ascii_dump_string(ep->agent.mta.relay.ca_name,
 		    buf, len);
 
 	if (strcasecmp(field, "mta-relay-flags") == 0)

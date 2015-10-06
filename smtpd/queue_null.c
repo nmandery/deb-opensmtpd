@@ -38,6 +38,7 @@
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
+#include <limits.h>
 
 #include "smtpd.h"
 #include "log.h"
@@ -106,7 +107,7 @@ queue_null_envelope_walk(uint64_t *evpid, char *buf, size_t len)
 }
 
 static int
-queue_null_init(struct passwd *pw, int server)
+queue_null_init(struct passwd *pw, int server, const char *conf)
 {
 	queue_api_on_message_create(queue_null_message_create);
 	queue_api_on_message_commit(queue_null_message_commit);

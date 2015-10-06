@@ -10,6 +10,7 @@ endif
 
 makemap_SOURCES=	$(smtpd_srcdir)/parse.y
 makemap_SOURCES+=	$(smtpd_srcdir)/makemap.c
+makemap_SOURCES+=	$(smtpd_srcdir)/mailaddr.c
 makemap_SOURCES+=	$(smtpd_srcdir)/aliases.c
 makemap_SOURCES+=	$(smtpd_srcdir)/expand.c
 makemap_SOURCES+=	$(smtpd_srcdir)/limit.c
@@ -33,7 +34,7 @@ AM_CPPFLAGS=		-I$(smtpd_srcdir)	\
 
 LIBCOMPAT=		$(top_builddir)/openbsd-compat/libopenbsd-compat.a
 
-LDADD=			$(LIBCOMPAT)
+LDADD=			$(LIBCOMPAT) $(DB_LIB)
 
 # need to define _GNU_SOURCE to get:
 # EAI_NODATA defined

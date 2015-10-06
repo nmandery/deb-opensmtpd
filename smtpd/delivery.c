@@ -31,6 +31,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <limits.h>
 
 #include "smtpd.h"
 #include "log.h"
@@ -56,8 +57,7 @@ delivery_backend_lookup(enum action_type type)
 	case A_LMTP:
 		return &delivery_backend_lmtp;
 	default:
-		fatal("unsupported delivery_backend type");
+		break;
 	}
-
 	return NULL;
 }

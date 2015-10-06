@@ -1,4 +1,4 @@
-.\" $OpenBSD$
+.\" $OpenBSD: smtpctl.8,v 1.48 2014/07/08 07:58:01 sobrado Exp $
 .\"
 .\" Copyright (c) 2006 Pierre-Yves Ritschard <pyr@openbsd.org>
 .\" Copyright (c) 2012 Gilles Chehade <gilles@poolp.org>
@@ -15,7 +15,7 @@
 .\" ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 .\" OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 .\"
-.Dd $Mdocdate: February 17 2014 $
+.Dd $Mdocdate: July 8 2014 $
 .Dt SMTPCTL 8
 .Os
 .Sh NAME
@@ -37,6 +37,9 @@ for
 .Pp
 The following commands are available:
 .Bl -tag -width Ds
+.It Cm discover Ar envelope-id | message-id
+Schedule a single envelope, or all envelopes with the same message ID
+that were manually moved to the queue.
 .It Cm encrypt Op Ar string
 Encrypt the password
 .Ar string
@@ -243,7 +246,7 @@ io
 .It
 smtp (incoming sessions)
 .It
-filter
+filters
 .It
 transfer (outgoing sessions)
 .It
@@ -263,6 +266,8 @@ mproc
 .It
 all
 .El
+.It Cm uncorrupt Ar message-id
+Move all envelopes with the given message ID from corrupt bucket back to queue.
 .It Cm unprofile Ar subsystem
 Disables real-time profiling of
 .Ar subsystem .
@@ -300,7 +305,7 @@ a command which specifies an
 .Ar envelope-id
 applies to a specific recipient of a message.
 .Sh FILES
-.Bl -tag -width "/var/run/smtpd.sockXX" -compact
+.Bl -tag -width "/var/run/smtpd.sockXXX" -compact
 .It /var/run/smtpd.sock
 .Ux Ns -domain
 socket used for communication with

@@ -1,4 +1,4 @@
-/*	$OpenBSD$	*/
+/*	$OpenBSD: util.c,v 1.110 2014/05/25 10:55:36 espie Exp $	*/
 
 /*
  * Copyright (c) 2000,2001 Markus Friedl.  All rights reserved.
@@ -41,6 +41,7 @@
 #include <libgen.h>
 #include <netdb.h>
 #include <pwd.h>
+#include <limits.h>
 #include <resolv.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -140,11 +141,11 @@ strip(char *s)
 {
 	size_t	 l;
 
-	while (*s == ' ' || *s == '\t')
+	while (isspace((unsigned char)*s))
 		s++;
 
 	for (l = strlen(s); l; l--) {
-		if (s[l-1] != ' ' && s[l-1] != '\t')
+		if (!isspace((unsigned char)s[l-1]))
 			break;
 		s[l-1] = '\0';
 	}
@@ -188,7 +189,7 @@ mkdirs_component(char *path, mode_t mode)
 int
 mkdirs(char *path, mode_t mode)
 {
-	char	 buf[SMTPD_MAXPATHLEN];
+	char	 buf[PATH_MAX];
 	int	 i = 0;
 	int	 done = 0;
 	char	*p;
@@ -197,7 +198,7 @@ mkdirs(char *path, mode_t mode)
 	if (*path != '/')
 		return 0;
 
-	/* make sure we don't exceed SMTPD_MAXPATHLEN */
+	/* make sure we don't exceed PATH_MAX */
 	if (strlen(path) >= sizeof buf)
 		return 0;
 
@@ -227,6 +228,46 @@ mkdirs(char *path, mode_t mode)
 	return 1;
 }
 
+int
+ckdir_quiet(const char *path, mode_t mode, uid_t owner, gid_t group)
+{
+	struct stat	sb;
+
+	if (stat(path, &sb) == -1) {
+		if (errno != ENOENT)
+			return (0);
+
+		/* chmod is deferred to avoid umask effect */
+		if (mkdir(path, 0) == -1)
+			return (0);
+
+		if (chown(path, owner, group) == -1)
+			return (0);
+
+		if (chmod(path, mode) == -1)
+			return (0);
+
+		if (stat(path, &sb) == -1)
+			return (0);
+	}
+
+	/* check if it's a directory */
+	if (!S_ISDIR(sb.st_mode))
+		return 0;
+
+	/* check that it is owned by owner/group */
+	if (sb.st_uid != owner)
+		return 0;
+
+	if (sb.st_gid != group)
+		return 0;
+
+	/* check permission */
+	if ((sb.st_mode & 07777) != mode)
+		return 0;
+
+	return 1;
+}
 
 int
 ckdir(const char *path, mode_t mode, uid_t owner, gid_t group, int create)
@@ -346,7 +387,7 @@ mvpurge(char *from, char *to)
 	size_t		 n;
 	int		 retry;
 	const char	*sep;
-	char		 buf[SMTPD_MAXPATHLEN];
+	char		 buf[PATH_MAX];
 
 	if ((n = strlen(to)) == 0)
 		fatalx("to is empty");
@@ -355,7 +396,7 @@ mvpurge(char *from, char *to)
 	retry = 0;
 
 again:
-	snprintf(buf, sizeof buf, "%s%s%u", to, sep, arc4random());
+	(void)snprintf(buf, sizeof buf, "%s%s%u", to, sep, arc4random());
 	if (rename(from, buf) == -1) {
 		/* ENOTDIR has actually 2 meanings, and incorrect input
 		 * could lead to an infinite loop. Consider that after
@@ -376,7 +417,7 @@ again:
 int
 mktmpfile(void)
 {
-	char		path[SMTPD_MAXPATHLEN];
+	char		path[PATH_MAX];
 	int		fd;
 	mode_t		omode;
 
@@ -444,6 +485,34 @@ hostname_match(const char *hostname, const char *pattern)
 }
 
 int
+mailaddr_match(const struct mailaddr *maddr1, const struct mailaddr *maddr2)
+{
+	struct mailaddr m1 = *maddr1;
+	struct mailaddr m2 = *maddr2;
+	char	       *p;
+
+	/* catchall */
+	if (m2.user[0] == '\0' && m2.domain[0] == '\0')
+		return 1;
+	
+	if (! hostname_match(m1.domain, m2.domain))
+		return 0;
+
+	if (m2.user[0]) {
+		/* if address from table has a tag, we must respect it */
+		if (strchr(m2.user, '+') == NULL) {
+			/* otherwise, strip tag from session address if any */
+			p = strchr(m1.user, '+');
+			if (p)
+				*p = '\0';
+		}
+		if (strcasecmp(m1.user, m2.user))
+			return 0;
+	}
+	return 1;
+}
+
+int
 valid_localpart(const char *s)
 {
 #define IS_ATEXT(c) (isalnum((unsigned char)(c)) || strchr(MAILADDR_ALLOWED, (c)))
@@ -494,29 +563,10 @@ valid_domainpart(const char *s)
 		
 		return 0;
 	}
-	
-nextsub:
-	if (!isalnum((unsigned char)*s))
-		return 0;
-	while (*(++s) != '\0') {
-		if (*s == '.')
-			break;
-		if (isalnum((unsigned char)*s) || *s == '-')
-			continue;
-		return 0;
-	}
-	if (s[-1] == '-')
-		return 0;
-	if (*s == '.') {
-		s++;
-		goto nextsub;
-	}
-	return 1;
+
+	return res_hnok(s);
 }
 
-/*
- * Check file for security. Based on usr.bin/ssh/auth.c.
- */
 int
 secure_file(int fd, char *path, char *userdir, uid_t uid, int mayread)
 {
@@ -534,7 +584,7 @@ secure_file(int fd, char *path, char *userdir, uid_t uid, int mayread)
 	/* Check the open file to avoid races. */
 	if (fstat(fd, &st) < 0 ||
 	    !S_ISREG(st.st_mode) ||
-	    (st.st_uid != 0 && st.st_uid != uid) ||
+	    st.st_uid != uid ||
 	    (st.st_mode & (mayread ? 022 : 066)) != 0)
 		return 0;
 
@@ -542,7 +592,7 @@ secure_file(int fd, char *path, char *userdir, uid_t uid, int mayread)
 	for (;;) {
 		if ((cp = dirname(buf)) == NULL)
 			return 0;
-		strlcpy(buf, cp, sizeof(buf));
+		(void)strlcpy(buf, cp, sizeof(buf));
 
 		if (stat(buf, &st) < 0 ||
 		    (st.st_uid != 0 && st.st_uid != uid) ||
@@ -585,11 +635,9 @@ addargs(arglist *args, char *fmt, ...)
 	} else if (args->num+2 >= nalloc)
 		nalloc *= 2;
 
-	if (SIZE_T_MAX / nalloc < sizeof(char *))
-		fatalx("addargs: nalloc * size > SIZE_T_MAX");
-	args->list = realloc(args->list, nalloc * sizeof(char *));
+	args->list = reallocarray(args->list, nalloc, sizeof(char *));
 	if (args->list == NULL)
-		fatal("addargs: realloc");
+		fatal("addargs: reallocarray");
 	args->nalloc = nalloc;
 	args->list[args->num++] = cp;
 	args->list[args->num] = NULL;
@@ -701,7 +749,7 @@ parse_smtp_response(char *line, size_t len, char **msg, int *cont)
 {
 	size_t	 i;
 
-	if (len >= SMTPD_MAXLINESIZE)
+	if (len >= LINE_MAX)
 		return "line too long";
 
 	if (len > 3) {

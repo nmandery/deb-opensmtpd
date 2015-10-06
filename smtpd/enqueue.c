@@ -1,4 +1,4 @@
-/*	$OpenBSD$	*/
+/*	$OpenBSD: enqueue.c,v 1.81 2014/06/06 15:02:08 gilles Exp $	*/
 
 /*
  * Copyright (c) 2005 Henning Brauer <henning@bulabula.org>
@@ -40,6 +40,7 @@
 #include <sysexits.h>
 #include <time.h>
 #include <unistd.h>
+#include <limits.h>
 
 #include "smtpd.h"
 
@@ -100,7 +101,7 @@ struct {
 #define WSP(c)			(c == ' ' || c == '\t')
 
 int	  verbose = 0;
-char	  host[SMTPD_MAXHOSTNAMELEN];
+char	  host[HOST_NAME_MAX+1];
 char	 *user = NULL;
 time_t	  timestamp;
 
@@ -176,6 +177,7 @@ enqueue(int argc, char *argv[])
 	int			 inheaders = 0;
 	int			 save_argc;
 	char			**save_argv;
+	int			 no_getlogin = 0;
 
 	memset(&msg, 0, sizeof(msg));
 	time(&timestamp);
@@ -184,7 +186,7 @@ enqueue(int argc, char *argv[])
 	save_argv = argv;
 
 	while ((ch = getopt(argc, argv,
-	    "A:B:b:E::e:F:f:iJ::L:mN:o:p:qR:tvV:x")) != -1) {
+	    "A:B:b:E::e:F:f:iJ::L:mN:o:p:qR:StvV:x")) != -1) {
 		switch (ch) {
 		case 'f':
 			fake_from = optarg;
@@ -197,6 +199,9 @@ enqueue(int argc, char *argv[])
 			break;
 		case 'R':
 			msg.dsn_ret = optarg;
+			break;
+		case 'S':
+			no_getlogin = 1;
 			break;
 		case 't':
 			tflag = 1;
@@ -233,10 +238,24 @@ enqueue(int argc, char *argv[])
 
 	if (getmailname(host, sizeof(host)) == -1)
 		err(EX_NOHOST, "getmailname");
-	if ((pw = getpwuid(getuid())) == NULL)
-		user = "anonymous";
-	if (pw != NULL)
-		user = xstrdup(pw->pw_name, "enqueue");
+	if (no_getlogin) {
+		if ((pw = getpwuid(getuid())) == NULL)
+			user = "anonymous";
+		if (pw != NULL)
+			user = xstrdup(pw->pw_name, "enqueue");
+	}
+	else {
+		uid_t ruid = getuid();
+
+		if ((user = getlogin()) != NULL && *user != '\0') {
+			if ((pw = getpwnam(user)) == NULL ||
+			    (ruid != 0 && ruid != pw->pw_uid))
+				pw = getpwuid(ruid);
+		} else if ((pw = getpwuid(ruid)) == NULL) {
+			user = "anonymous";
+		}
+		user = xstrdup(pw ? pw->pw_name : user, "enqueue");
+	}
 
 	build_from(fake_from, pw);
 
@@ -248,11 +267,12 @@ enqueue(int argc, char *argv[])
 
 	if ((fd = mkstemp(sfn)) == -1 ||
 	    (fp = fdopen(fd, "w+")) == NULL) {
+		int saved_errno = errno;
 		if (fd != -1) {
 			unlink(sfn);
 			close(fd);
 		}
-		err(EX_UNAVAILABLE, "mkstemp");
+		errc(EX_UNAVAILABLE, saved_errno, "mkstemp");
 	}
 	unlink(sfn);
 	noheader = parse_message(stdin, fake_from == NULL, tflag, fp);
@@ -338,9 +358,6 @@ enqueue(int argc, char *argv[])
 			send_line(fout, 0, "Content-Transfer-Encoding: "
 			    "quoted-printable\n");
 	}
-	if (!msg.saw_user_agent)
-		send_line(fout, 0, "User-Agent: %s enqueuer (%s)\n",
-		    SMTPD_NAME, "Demoostik");
 
 	/* add separating newline */
 	if (noheader)
@@ -354,6 +371,9 @@ enqueue(int argc, char *argv[])
 			err(EX_UNAVAILABLE, "fgetln");
 		if (buf == NULL && feof(fp))
 			break;
+		if (buf == NULL)
+			err(EX_UNAVAILABLE, "fgetln");
+
 		/* newlines have been normalized on first parsing */
 		if (buf[len-1] != '\n')
 			errx(EX_SOFTWARE, "expect EOL");
@@ -365,6 +385,13 @@ enqueue(int argc, char *argv[])
 		}
 
 		line = buf;
+
+		if (inheaders) {
+			if (strncasecmp("From ", line, 5) == 0)
+				continue;
+			if (strncasecmp("Return-Path: ", line, 13) == 0)
+				continue;
+		}
 
 		if (msg.saw_content_transfer_encoding || noheader ||
 		    inheaders || !msg.need_linesplit) {
@@ -726,10 +753,10 @@ open_connection(void)
 	int		fd;
 	int		n;
 
-	imsg_compose(ibuf, IMSG_SMTP_ENQUEUE_FD, IMSG_VERSION, 0, -1, NULL, 0);
+	imsg_compose(ibuf, IMSG_CTL_SMTP_SESSION, IMSG_VERSION, 0, -1, NULL, 0);
 
 	while (ibuf->w.queued)
-		if (msgbuf_write(&ibuf->w) < 0 && errno != EAGAIN)
+		if (msgbuf_write(&ibuf->w) <= 0 && errno != EAGAIN)
 			err(1, "write error");
 
 	while (1) {
@@ -764,16 +791,29 @@ open_connection(void)
 static int
 enqueue_offline(int argc, char *argv[], FILE *ifile)
 {
-	char	 path[SMTPD_MAXPATHLEN];
+	char	 path[PATH_MAX];
 	FILE	*fp;
 	int	 i, fd, ch;
 	mode_t	 omode;
+	uint64_t	rnd;
+	int	 ret;
 
 	if (ckdir(PATH_SPOOL PATH_OFFLINE, 01777, 0, 0, 0) == 0)
 		errx(EX_UNAVAILABLE, "error in offline directory setup");
 
-	if (! bsnprintf(path, sizeof(path), "%s%s/%lld.XXXXXXXXXX", PATH_SPOOL,
-		PATH_OFFLINE, (long long int) time(NULL)))
+	do {
+		rnd = generate_uid();
+		if (! bsnprintf(path, sizeof(path), "%s%s/%016"PRIx64, PATH_SPOOL,
+			PATH_OFFLINE, rnd))
+			err(EX_UNAVAILABLE, "snprintf");
+		ret = mkdir(path, 0700);
+		if (ret == -1)
+			if (errno != EEXIST)
+				err(EX_UNAVAILABLE, "mkdir");
+	} while (ret == -1);
+
+	if (! bsnprintf(path, sizeof(path), "%s%s/%016"PRIx64"/%lld.XXXXXXXXXX", PATH_SPOOL,
+		PATH_OFFLINE, rnd, (long long int) time(NULL)))
 		err(EX_UNAVAILABLE, "snprintf");
 
 	omode = umask(7077);

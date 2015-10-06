@@ -1,4 +1,4 @@
-/*	$OpenBSD$	*/
+/*	$OpenBSD: ssl.c,v 1.69 2014/07/10 20:16:48 jsg Exp $	*/
 
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -27,12 +27,7 @@
 #include <sys/stat.h>
 
 #include <ctype.h>
-#if LIBEVENT_MAJOR_VERSION < 2
 #include <event.h>
-#else
-#include <event2/event.h>
-#include <event2/bufferevent_ssl.h>
-#endif
 #include <fcntl.h>
 #include <imsg.h>
 #include <limits.h>
@@ -45,6 +40,9 @@
 #include <openssl/ssl.h>
 #include <openssl/engine.h>
 #include <openssl/err.h>
+#include <openssl/rsa.h>
+#include <openssl/dh.h>
+#include <openssl/bn.h>
 
 #include "log.h"
 #include "ssl.h"
@@ -68,37 +66,50 @@ ssl_init(void)
 	inited = 1;
 }
 
+/* dummy_verify */
+static int
+dummy_verify(int ok, X509_STORE_CTX *store)
+{
+	/*
+	 * We *want* SMTP to request an optional client certificate, however we don't want the
+	 * verification to take place in the SMTP process. This dummy verify will allow us to
+	 * asynchronously verify in the lookup process.
+	 */
+	return 1;
+}
+
 int
-ssl_setup(SSL_CTX **ctxp, struct pki *pki)
+ssl_setup(SSL_CTX **ctxp, struct pki *pki, int (*sni_cb)(SSL *,int *,void *),
+    const char *ciphers, const char *curve)
 {
 	DH	*dh;
 	SSL_CTX	*ctx;
-	
-	ctx = ssl_ctx_create();
+	u_int8_t sid[SSL_MAX_SID_CTX_LENGTH];
 
-	if (!ssl_ctx_use_certificate_chain(ctx,
-		pki->pki_cert, pki->pki_cert_len))
-		goto err;
-	if (!ssl_ctx_use_private_key(ctx,
-		pki->pki_key, pki->pki_key_len))
-		goto err;
+	ctx = ssl_ctx_create(pki->pki_name, pki->pki_cert, pki->pki_cert_len, ciphers);
 
-	if (!SSL_CTX_check_private_key(ctx))
-		goto err;
-	if (!SSL_CTX_set_session_id_context(ctx,
-		(const unsigned char *)pki->pki_name,
-		strlen(pki->pki_name) + 1))
-		goto err;
+        /*
+         * Set session ID context to a random value.  We don't support
+         * persistent caching of sessions so it is OK to set a temporary
+         * session ID context that is valid during run time.
+         */
+        arc4random_buf(sid, sizeof(sid));
+        if (!SSL_CTX_set_session_id_context(ctx, sid, sizeof(sid)))
+                goto err;
+
+	SSL_CTX_set_verify(ctx, SSL_VERIFY_PEER, dummy_verify);
+	if (sni_cb)
+		SSL_CTX_set_tlsext_servername_callback(ctx, sni_cb);
 
 	if (pki->pki_dhparams_len == 0)
-		dh = get_dh1024();
+		dh = get_dh();
 	else
 		dh = get_dh_from_memory(pki->pki_dhparams,
 		    pki->pki_dhparams_len);
 	ssl_set_ephemeral_key_exchange(ctx, dh);
 	DH_free(dh);
 
-	ssl_set_ecdh_curve(ctx, SSL_ECDH_CURVE);
+	ssl_set_ecdh_curve(ctx, curve);
 
 	*ctxp = ctx;
 	return 1;
@@ -159,7 +170,7 @@ ssl_password_cb(char *buf, int size, int rwflag, void *u)
 {
 	size_t	len;
 	if (u == NULL) {
-		memset(buf, 0, size);
+		explicit_bzero(buf, size);
 		return (0);
 	}
 	if ((len = strlcpy(buf, u, size)) >= (size_t)size)
@@ -169,7 +180,7 @@ ssl_password_cb(char *buf, int size, int rwflag, void *u)
 #endif
 
 static int
-ssl_getpass_cb(char *buf, int size, int rwflag, void *u)
+ssl_password_cb(char *buf, int size, int rwflag, void *u)
 {
 	int	ret = 0;
 	size_t	len;
@@ -184,7 +195,7 @@ ssl_getpass_cb(char *buf, int size, int rwflag, void *u)
 	ret = len;
 end:
 	if (len)
-		memset(pass, 0, len);
+		explicit_bzero(pass, len);
 	return ret;
 }
 
@@ -225,7 +236,7 @@ ssl_load_key(const char *name, off_t *len, char *pass, mode_t perm, const char *
 	}
 
 	(void)snprintf(prompt, sizeof prompt, "passphrase for %s: ", pkiname);
-	key = PEM_read_PrivateKey(fp, NULL, ssl_getpass_cb, prompt);
+	key = PEM_read_PrivateKey(fp, NULL, ssl_password_cb, prompt);
 	fclose(fp);
 	fp = NULL;
 	if (key == NULL)
@@ -244,6 +255,8 @@ ssl_load_key(const char *name, off_t *len, char *pass, mode_t perm, const char *
 	memcpy(buf, data, size);
 
 	BIO_free_all(bio);
+	EVP_PKEY_free(key);
+
 	*len = (off_t)size + 1;
 	return (buf);
 
@@ -252,15 +265,18 @@ fail:
 	free(buf);
 	if (bio != NULL)
 		BIO_free_all(bio);
+	if (key != NULL)
+		EVP_PKEY_free(key);
 	if (fp)
 		fclose(fp);
 	return (NULL);
 }
 
 SSL_CTX *
-ssl_ctx_create()
+ssl_ctx_create(const char *pkiname, char *cert, off_t cert_len, const char *ciphers)
 {
-	SSL_CTX	*ctx;
+	SSL_CTX	       *ctx;
+	size_t		pkinamelen = 0;
 
 	ctx = SSL_CTX_new(SSLv23_method());
 	if (ctx == NULL) {
@@ -271,13 +287,31 @@ ssl_ctx_create()
 	SSL_CTX_set_session_cache_mode(ctx, SSL_SESS_CACHE_OFF);
 	SSL_CTX_set_timeout(ctx, SSL_SESSION_TIMEOUT);
 	SSL_CTX_set_options(ctx,
-	    SSL_OP_ALL | SSL_OP_NO_SSLv2 | SSL_OP_NO_TICKET);
+	    SSL_OP_ALL | SSL_OP_NO_SSLv2 | SSL_OP_NO_SSLv3 | SSL_OP_NO_TICKET);
 	SSL_CTX_set_options(ctx,
 	    SSL_OP_NO_SESSION_RESUMPTION_ON_RENEGOTIATION);
 
-	if (!SSL_CTX_set_cipher_list(ctx, SSL_CIPHERS)) {
+	if (ciphers == NULL)
+		ciphers = SSL_CIPHERS;
+	if (!SSL_CTX_set_cipher_list(ctx, ciphers)) {
 		ssl_error("ssl_ctx_create");
 		fatal("ssl_ctx_create: could not set cipher list");
+	}
+
+	if (cert != NULL) {
+		if (pkiname != NULL)
+			pkinamelen = strlen(pkiname) + 1;
+		if (!SSL_CTX_use_certificate_chain_mem(ctx, cert, cert_len)) {
+			ssl_error("ssl_ctx_create");
+			fatal("ssl_ctx_create: invalid certificate chain");
+		} else if (!ssl_ctx_fake_private_key(ctx,
+		    pkiname, pkinamelen, cert, cert_len, NULL, NULL)) {
+			ssl_error("ssl_ctx_create");
+			fatal("ssl_ctx_create: could not fake private key");
+		} else if (!SSL_CTX_check_private_key(ctx)) {
+			ssl_error("ssl_ctx_create");
+			fatal("ssl_ctx_create: invalid private key");
+		}
 	}
 
 	return (ctx);
@@ -297,17 +331,8 @@ ssl_load_keyfile(struct pki *p, const char *pathname, const char *pkiname)
 {
 	char	pass[1024];
 
-	p->pki_key = ssl_load_key(pathname, &p->pki_key_len, pass, 0700, pkiname);
+	p->pki_key = ssl_load_key(pathname, &p->pki_key_len, pass, 0740, pkiname);
 	if (p->pki_key == NULL)
-		return 0;
-	return 1;
-}
-
-int
-ssl_load_cafile(struct pki *p, const char *pathname)
-{
-	p->pki_ca = ssl_load_file(pathname, &p->pki_ca_len, 0755);
-	if (p->pki_ca == NULL)
 		return 0;
 	return 1;
 }
@@ -325,13 +350,32 @@ ssl_load_dhparams(struct pki *p, const char *pathname)
 	return 1;
 }
 
+int
+ssl_load_cafile(struct ca *c, const char *pathname)
+{
+	c->ca_cert = ssl_load_file(pathname, &c->ca_cert_len, 0755);
+	if (c->ca_cert == NULL)
+		return 0;
+	return 1;
+}
+
 const char *
 ssl_to_text(const SSL *ssl)
 {
-	static char buf[256];
+	static char	buf[256];
+	static char	description[128];
+	char	       *tls_version = NULL;
 
-	snprintf(buf, sizeof buf, "version=%s, cipher=%s, bits=%d",
+	/*
+	 * SSL_get_cipher_version() does not know about the exact TLS version...
+	 * you have to pick it up from second field of the SSL cipher description !
+	 */
+	SSL_CIPHER_description(SSL_get_current_cipher(ssl), description, sizeof description);
+	tls_version = strchr(description, ' ') + 1;
+	tls_version[strcspn(tls_version, " ")] = '\0';
+	(void)snprintf(buf, sizeof buf, "version=%s (%s), cipher=%s, bits=%d",
 	    SSL_get_cipher_version(ssl),
+	    tls_version,
 	    SSL_get_cipher_name(ssl),
 	    SSL_get_cipher_bits(ssl, NULL));
 
@@ -358,6 +402,16 @@ ssl_error(const char *where)
  *
  * -- gilles@
  */
+DH *
+get_dh(void)
+{
+#if defined(USE_DH1024)
+	return get_dh1024();
+#else
+	return get_dh2048();
+#endif
+}
+
 DH *
 get_dh1024(void)
 {
@@ -395,6 +449,51 @@ get_dh1024(void)
 	}
 
 	return dh;
+}
+
+DH *
+get_dh2048()
+{
+	DH *dh;
+        static unsigned char dh2048_p[] = {
+                0xB2, 0xE2, 0x07, 0x34, 0x16, 0xEB, 0x18, 0xB5, 0xED, 0x0F, 0xD4, 0xC3,
+                0xB6, 0x6B, 0x79, 0xDF, 0xA1, 0x98, 0x1C, 0x8D, 0x68, 0x97, 0x6C, 0xDF,
+                0xFF, 0x38, 0x60, 0xEC, 0x93, 0x40, 0xEF, 0x26, 0x12, 0xB8, 0x1B, 0x79,
+                0x68, 0x72, 0x47, 0x8F, 0x53, 0x4C, 0xBF, 0x90, 0xFF, 0xE0, 0x3E, 0xE7,
+                0x43, 0x95, 0x0B, 0x97, 0x43, 0xDA, 0xB4, 0xE1, 0x85, 0x69, 0xA5, 0x67,
+                0xFB, 0x10, 0x97, 0x5A, 0x0D, 0x11, 0xEB, 0xED, 0x78, 0x82, 0xCC, 0xF5,
+                0x7A, 0xCC, 0x27, 0x27, 0x5E, 0xE5, 0x3D, 0xBA, 0x47, 0x38, 0xBE, 0x18,
+                0xCA, 0xC7, 0x16, 0xC7, 0x7B, 0x9E, 0xA7, 0xB0, 0x80, 0xAC, 0x92, 0x25,
+                0x36, 0x16, 0x8F, 0x29, 0xA5, 0x32, 0x01, 0x60, 0x33, 0x7C, 0x2C, 0x2F,
+                0x49, 0x7C, 0x1D, 0x4B, 0xDA, 0xBD, 0xE4, 0xF9, 0x82, 0x2B, 0x71, 0xCB,
+                0x07, 0xE3, 0xCC, 0x65, 0x8A, 0x1A, 0xAB, 0x81, 0x0F, 0xA9, 0x96, 0x35,
+                0x4C, 0xFD, 0x42, 0xFC, 0xD6, 0xE3, 0xE8, 0x2E, 0x0E, 0xAA, 0x4D, 0x75,
+                0x54, 0x02, 0x49, 0xDD, 0xC5, 0x5F, 0x38, 0x93, 0xFA, 0xEF, 0x7D, 0xBA,
+                0x0C, 0x75, 0x93, 0x09, 0x8C, 0x24, 0x65, 0xC6, 0xF4, 0xBF, 0x59, 0xF0,
+                0x5D, 0x0A, 0xA4, 0x26, 0x7F, 0xDA, 0x0F, 0x41, 0x3A, 0x43, 0x61, 0xDF,
+                0x09, 0x26, 0xA1, 0xB0, 0xFE, 0x8D, 0xA6, 0x21, 0xC1, 0xFD, 0x41, 0x65,
+                0x30, 0xE7, 0xE4, 0xD0, 0x8E, 0x78, 0x93, 0x3C, 0x3E, 0x3E, 0xCA, 0x30,
+                0xA7, 0x25, 0x35, 0x24, 0x26, 0x29, 0xAC, 0xCE, 0x21, 0x78, 0x3B, 0x9D,
+                0xDD, 0x0B, 0x44, 0xD0, 0x7C, 0xEB, 0x2F, 0xDD, 0xE7, 0x64, 0xBC, 0xF7,
+                0x40, 0x12, 0xC8, 0x35, 0xFA, 0x81, 0xD6, 0x80, 0x39, 0x1C, 0x77, 0x72,
+                0x86, 0x5B, 0x19, 0xDC, 0xCB, 0xDC, 0xCB, 0xF6, 0x54, 0x6F, 0xB1, 0xCB,
+                0xE4, 0xC3, 0x05, 0xD3,
+	};
+        static unsigned char dh2048_g[] = {
+                0x02,
+	};
+
+        if ((dh = DH_new()) == NULL)
+		return NULL;
+
+        dh->p = BN_bin2bn(dh2048_p, sizeof(dh2048_p), NULL);
+        dh->g = BN_bin2bn(dh2048_g, sizeof(dh2048_g), NULL);
+        if (dh->p == NULL || dh->g == NULL) {
+		DH_free(dh);
+		return NULL;
+	}
+
+        return dh;
 }
 
 DH *
@@ -443,14 +542,12 @@ ssl_set_ecdh_curve(SSL_CTX *ctx, const char *curve)
 		curve = SSL_ECDH_CURVE;
 	if ((nid = OBJ_sn2nid(curve)) == 0) {
 		ssl_error("ssl_set_ecdh_curve");
-		fatal("ssl_set_ecdh_curve: unknown curve name "
-		    SSL_ECDH_CURVE);
+		fatal("ssl_set_ecdh_curve: unknown curve name %s", curve);
 	}
 
 	if ((ecdh = EC_KEY_new_by_curve_name(nid)) == NULL) {
 		ssl_error("ssl_set_ecdh_curve");
-		fatal("ssl_set_ecdh_curve: unable to create curve "
-		    SSL_ECDH_CURVE);
+		fatal("ssl_set_ecdh_curve: unable to create curve %s", curve);
 	}
 
 	SSL_CTX_set_tmp_ecdh(ctx, ecdh);
@@ -458,4 +555,97 @@ ssl_set_ecdh_curve(SSL_CTX *ctx, const char *curve)
 	EC_KEY_free(ecdh);
 #endif
 #endif
+}
+
+int
+ssl_load_pkey(const void *data, size_t datalen, char *buf, off_t len,
+    X509 **x509ptr, EVP_PKEY **pkeyptr)
+{
+	BIO		*in;
+	X509		*x509 = NULL;
+	EVP_PKEY	*pkey = NULL;
+	RSA		*rsa = NULL;
+	void		*exdata = NULL;
+
+	if ((in = BIO_new_mem_buf(buf, len)) == NULL) {
+		SSLerr(SSL_F_SSL_CTX_USE_PRIVATEKEY, ERR_R_BUF_LIB);
+		return (0);
+	}
+
+	if ((x509 = PEM_read_bio_X509(in, NULL,
+	    ssl_password_cb, NULL)) == NULL) {
+		SSLerr(SSL_F_SSL_CTX_USE_PRIVATEKEY, ERR_R_PEM_LIB);
+		goto fail;
+	}
+
+	if ((pkey = X509_get_pubkey(x509)) == NULL) {
+		SSLerr(SSL_F_SSL_CTX_USE_PRIVATEKEY, ERR_R_X509_LIB);
+		goto fail;
+	}
+
+	BIO_free(in);
+	in = NULL;
+
+	if (data != NULL && datalen) {
+		if ((rsa = EVP_PKEY_get1_RSA(pkey)) == NULL ||
+		    (exdata = malloc(datalen)) == NULL) {
+			SSLerr(SSL_F_SSL_CTX_USE_PRIVATEKEY, ERR_R_EVP_LIB);
+			goto fail;
+		}
+
+		memcpy(exdata, data, datalen);
+		RSA_set_ex_data(rsa, 0, exdata);
+		RSA_free(rsa); /* dereference, will be cleaned up with pkey */
+	}
+
+	*x509ptr = x509;
+	*pkeyptr = pkey;
+
+	return (1);
+
+ fail:
+	if (rsa != NULL)
+		RSA_free(rsa);
+	if (in != NULL)
+		BIO_free(in);
+	if (pkey != NULL)
+		EVP_PKEY_free(pkey);
+	if (x509 != NULL)
+		X509_free(x509);
+	free(exdata);
+	return (0);
+}
+
+int
+ssl_ctx_fake_private_key(SSL_CTX *ctx, const void *data, size_t datalen,
+    char *buf, off_t len, X509 **x509ptr, EVP_PKEY **pkeyptr)
+{
+	int		 ret = 0;
+	EVP_PKEY	*pkey = NULL;
+	X509		*x509 = NULL;
+
+	if (!ssl_load_pkey(data, datalen, buf, len, &x509, &pkey))
+		return (0);
+
+	/*
+	 * Use the public key as the "private" key - the secret key
+	 * parameters are hidden in an extra process that will be
+	 * contacted by the RSA engine.  The SSL/TLS library needs at
+	 * least the public key parameters in the current process.
+	 */
+	ret = SSL_CTX_use_PrivateKey(ctx, pkey);
+	if (!ret)
+		SSLerr(SSL_F_SSL_CTX_USE_PRIVATEKEY, ERR_R_SSL_LIB);
+
+	if (pkeyptr != NULL)
+		*pkeyptr = pkey;
+	else if (pkey != NULL)
+		EVP_PKEY_free(pkey);
+
+	if (x509ptr != NULL)
+		*x509ptr = x509;
+	else if (x509 != NULL)
+		X509_free(x509);
+
+	return (ret);
 }
