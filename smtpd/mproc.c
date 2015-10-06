@@ -1,4 +1,4 @@
-/*	$OpenBSD$	*/
+/*	$OpenBSD: mproc.c,v 1.8 2014/04/19 17:45:05 gilles Exp $	*/
 
 /*
  * Copyright (c) 2012 Eric Faurot <eric@faurot.net>
@@ -34,19 +34,20 @@
 #include <imsg.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <limits.h>
 #include <string.h>
 #include <unistd.h>
 
 #include "smtpd.h"
 #include "log.h"
 
-static void mproc_event_add(struct mproc *);
 static void mproc_dispatch(int, short, void *);
 
 static ssize_t msgbuf_write2(struct msgbuf *);
+static ssize_t imsg_read_nofd(struct imsgbuf *);
 
 int
-mproc_fork(struct mproc *p, const char *path, const char *arg)
+mproc_fork(struct mproc *p, const char *path, char *argv[])
 {
 	int sp[2];
 
@@ -63,8 +64,9 @@ mproc_fork(struct mproc *p, const char *path, const char *arg)
 		/* child process */
 		dup2(sp[0], STDIN_FILENO);
 		closefrom(STDERR_FILENO + 1);
-		execl(path, arg, NULL);
-		err(1, "execl");
+
+		execv(path, argv);
+		err(1, "execv: %s", path);
 	}
 
 	/* parent process */
@@ -73,7 +75,7 @@ mproc_fork(struct mproc *p, const char *path, const char *arg)
 	return (0);
 
 err:
-	log_warn("warn: Failed to start process %s, instance of %s", arg, path);
+	log_warn("warn: Failed to start process %s, instance of %s", argv[0], path);
 	close(sp[0]);
 	close(sp[1]);
 	return (-1);
@@ -117,7 +119,7 @@ mproc_disable(struct mproc *p)
 	mproc_event_add(p);
 }
 
-static void
+void
 mproc_event_add(struct mproc *p)
 {
 	short	events;
@@ -151,9 +153,16 @@ mproc_dispatch(int fd, short event, void *arg)
 
 	if (event & EV_READ) {
 
-		if ((n = imsg_read(&p->imsgbuf)) == -1) {
+		if (p->proc == PROC_CLIENT)
+			n = imsg_read_nofd(&p->imsgbuf);
+		else
+			n = imsg_read(&p->imsgbuf);
+
+		if (n == -1) {
 			log_warn("warn: %s -> %s: imsg_read",
 			    proc_name(smtpd_process),  p->name);
+			if (errno == EAGAIN)
+				return;
 			fatal("exiting");
 		}
 		if (n == 0) {
@@ -186,6 +195,14 @@ mproc_dispatch(int fd, short event, void *arg)
 
 	for (;;) {
 		if ((n = imsg_get(&p->imsgbuf, &imsg)) == -1) {
+
+			if (smtpd_process == PROC_CONTROL &&
+			    p->proc == PROC_CLIENT) {
+				log_warnx("warn: client sent invalid imsg "
+				    "over control socket");
+				p->handler(p, NULL);
+				return;
+			}
 			log_warn("fatal: %s: error in imsg_get for %s",
 			    proc_name(smtpd_process),  p->name);
 			fatalx(NULL);
@@ -275,6 +292,29 @@ again:
 	return (n);
 }
 
+/* This should go into libutil */
+static ssize_t
+imsg_read_nofd(struct imsgbuf *ibuf)
+{
+	ssize_t	 n;
+	char	*buf;
+	size_t	 len;
+
+	buf = ibuf->r.buf + ibuf->r.wpos;
+	len = sizeof(ibuf->r.buf) - ibuf->r.wpos;
+
+    again:
+	if ((n = recv(ibuf->fd, buf, len, 0)) == -1) {
+		if (errno != EINTR && errno != EAGAIN)
+			goto fail;
+		goto again;
+	}
+
+        ibuf->r.wpos += n;
+fail:
+        return (n);
+}
+
 void
 m_forward(struct mproc *p, struct imsg *imsg)
 {
@@ -282,7 +322,9 @@ m_forward(struct mproc *p, struct imsg *imsg)
 	    imsg->hdr.pid, imsg->fd, imsg->data,
 	    imsg->hdr.len - sizeof(imsg->hdr));
 
-	log_trace(TRACE_MPROC, "mproc: %s -> %s : %zu %s (forward)",
+	if (imsg->hdr.type != IMSG_STAT_DECREMENT &&
+	    imsg->hdr.type != IMSG_STAT_INCREMENT)
+		log_trace(TRACE_MPROC, "mproc: %s -> %s : %zu %s (forward)",
 		    proc_name(smtpd_process),
 		    proc_name(p->proc),
 		    imsg->hdr.len - sizeof(imsg->hdr),
@@ -302,7 +344,9 @@ m_compose(struct mproc *p, uint32_t type, uint32_t peerid, pid_t pid, int fd,
 {
 	imsg_compose(&p->imsgbuf, type, peerid, pid, fd, data, len);
 
-	log_trace(TRACE_MPROC, "mproc: %s -> %s : %zu %s",
+	if (type != IMSG_STAT_DECREMENT &&
+	    type != IMSG_STAT_INCREMENT)
+		log_trace(TRACE_MPROC, "mproc: %s -> %s : %zu %s",
 		    proc_name(smtpd_process),
 		    proc_name(p->proc),
 		    len,
@@ -334,7 +378,9 @@ m_composev(struct mproc *p, uint32_t type, uint32_t peerid, pid_t pid,
 	if (p->bytes_queued > p->bytes_queued_max)
 		p->bytes_queued_max = p->bytes_queued;
 
-	log_trace(TRACE_MPROC, "mproc: %s -> %s : %zu %s",
+	if (type != IMSG_STAT_DECREMENT &&
+	    type != IMSG_STAT_INCREMENT)
+		log_trace(TRACE_MPROC, "mproc: %s -> %s : %zu %s",
 		    proc_name(smtpd_process),
 		    proc_name(p->proc),
 		    len,
@@ -348,7 +394,7 @@ m_create(struct mproc *p, uint32_t type, uint32_t peerid, pid_t pid, int fd)
 {
 	if (p->m_buf == NULL) {
 		p->m_alloc = 128;
-		log_trace(TRACE_MPROC, "mproc: %s -> %s: allocating %zu", 
+		log_trace(TRACE_MPROC, "mproc: %s -> %s: allocating %zu",
 		    proc_name(smtpd_process),
 		    proc_name(p->proc),
 		    p->m_alloc);
@@ -417,6 +463,25 @@ m_close(struct mproc *p)
 	mproc_event_add(p);
 }
 
+void
+m_flush(struct mproc *p)
+{
+	if (imsg_compose(&p->imsgbuf, p->m_type, p->m_peerid, p->m_pid, p->m_fd,
+	    p->m_buf, p->m_pos) == -1)
+		fatal("imsg_compose");
+
+	log_trace(TRACE_MPROC, "mproc: %s -> %s : %zu %s (flush)",
+	    proc_name(smtpd_process),
+	    proc_name(p->proc),
+	    p->m_pos,
+	    imsg_to_str(p->m_type));
+
+	p->msg_out += 1;
+	p->m_pos = 0;
+
+	imsg_flush(&p->imsgbuf);
+}
+
 static struct imsg * current;
 
 static void
@@ -424,11 +489,11 @@ m_error(const char *error)
 {
 	char	buf[512];
 
-	snprintf(buf, sizeof buf, "%s: %s: %s",
+	(void)snprintf(buf, sizeof buf, "%s: %s: %s",
 	    proc_name(smtpd_process),
 	    imsg_to_str(current->hdr.type),
 	    error);
-	fatalx(buf);
+	fatalx("%s", buf);
 }
 
 void
@@ -505,6 +570,7 @@ m_add_typed_sized(struct mproc *p, uint8_t type, const void *data, size_t len)
 enum {
 	M_INT,
 	M_UINT32,
+	M_SIZET,
 	M_TIME,
 	M_STRING,
 	M_DATA,
@@ -526,6 +592,12 @@ void
 m_add_u32(struct mproc *m, uint32_t u32)
 {
 	m_add_typed(m, M_UINT32, &u32, sizeof u32);
+};
+
+void
+m_add_size(struct mproc *m, size_t sz)
+{
+	m_add_typed(m, M_SIZET, &sz, sizeof sz);
 };
 
 void
@@ -593,6 +665,25 @@ m_add_envelope(struct mproc *m, const struct envelope *evp)
 #endif
 
 void
+m_add_params(struct mproc *m, struct dict *d)
+{
+	const char *key;
+	char *value;
+	void *iter;
+
+	if (d == NULL) {
+		m_add_size(m, 0);
+		return;
+	}
+	m_add_size(m, dict_count(d));
+	iter = NULL;
+	while (dict_iter(d, &iter, &key, (void **)&value)) {
+		m_add_string(m, key);
+		m_add_string(m, value);
+	}
+}
+
+void
 m_get_int(struct msg *m, int *i)
 {
 	m_get_typed(m, M_INT, i, sizeof(*i));
@@ -602,6 +693,12 @@ void
 m_get_u32(struct msg *m, uint32_t *u32)
 {
 	m_get_typed(m, M_UINT32, u32, sizeof(*u32));
+}
+
+void
+m_get_size(struct msg *m, size_t *sz)
+{
+	m_get_typed(m, M_SIZET, sz, sizeof(*sz));
 }
 
 void
@@ -623,7 +720,7 @@ m_get_string(struct msg *m, const char **s)
 	end = memchr(m->pos + 1, 0, m->end - (m->pos + 1));
 	if (end == NULL)
 		m_error("unterminated string");
-	
+
 	*s = m->pos + 1;
 	m->pos = end + 1;
 }
@@ -688,3 +785,33 @@ m_get_envelope(struct msg *m, struct envelope *evp)
 #endif
 }
 #endif
+
+void
+m_get_params(struct msg *m, struct dict *d)
+{
+	size_t	c;
+	const char *key;
+	const char *value;
+	char *tmp;
+
+	dict_init(d);
+
+	m_get_size(m, &c);
+
+	for (; c; c--) {
+		m_get_string(m, &key);
+		m_get_string(m, &value);
+		if ((tmp = strdup(value)) == NULL)
+			fatal("m_get_params");
+		dict_set(d, key, tmp);
+	}
+}
+
+void
+m_clear_params(struct dict *d)
+{
+	char *value;
+
+	while (dict_poproot(d, (void **)&value))
+		free(value);
+}

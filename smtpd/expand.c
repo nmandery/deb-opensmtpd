@@ -1,4 +1,4 @@
-/*	$OpenBSD$	*/
+/*	$OpenBSD: expand.c,v 1.27 2014/05/09 21:30:11 tedu Exp $	*/
 
 /*
  * Copyright (c) 2009 Gilles Chehade <gilles@poolp.org>
@@ -28,6 +28,7 @@
 #include <event.h>
 #include <imsg.h>
 #include <stdio.h>
+#include <limits.h>
 #include <stdlib.h>
 #include <string.h>
 #ifdef HAVE_UTIL_H
@@ -57,8 +58,9 @@ expand_to_text(struct expand *expand, char *buf, size_t sz)
 
 	RB_FOREACH(xn, expandtree, &expand->tree) {
 		if (buf[0])
-			strlcat(buf, ", ", sz);
-		strlcat(buf, expandnode_to_text(xn), sz);
+			(void)strlcat(buf, ", ", sz);
+		if (strlcat(buf, expandnode_to_text(xn), sz) >= sz)
+			return 0;
 	}
 
 	return 1;
@@ -199,13 +201,15 @@ expand_cmp(struct expandnode *e1, struct expandnode *e2)
 static int
 expand_line_split(char **line, char **ret)
 {
-	static char	buffer[SMTPD_MAXLINESIZE];
-	int		esc, i, dq, sq;
+	static char	buffer[LINE_MAX];
+	int		esc, dq, sq;
+	size_t		i;
 	char	       *s;
 
 	memset(buffer, 0, sizeof buffer);
-	esc = dq = sq = i = 0;
-	for (s = *line; (*s) && (i < (int)sizeof(buffer)); ++s) {
+	esc = dq = sq = 0;
+	i = 0;
+	for (s = *line; (*s) && (i < sizeof(buffer)); ++s) {
 		if (esc) {
 			buffer[i++] = *s;
 			esc = 0;
@@ -242,7 +246,7 @@ int
 expand_line(struct expand *expand, const char *s, int do_includes)
 {
 	struct expandnode	xn;
-	char			buffer[SMTPD_MAXLINESIZE];
+	char			buffer[LINE_MAX];
 	char		       *p, *subrcpt;
 	int			ret;
 
@@ -305,23 +309,23 @@ expandnode_info(struct expandnode *e)
 	if ((value = expandnode_to_text(e)) == NULL)
 		return NULL;
 
-	strlcpy(buffer, type, sizeof buffer);
-	strlcat(buffer, ":", sizeof buffer);
+	(void)strlcpy(buffer, type, sizeof buffer);
+	(void)strlcat(buffer, ":", sizeof buffer);
 	if (strlcat(buffer, value, sizeof buffer) >= sizeof buffer)
 		return NULL;
 
-	snprintf(tmp, sizeof(tmp), "[parent=%p", e->parent);
+	(void)snprintf(tmp, sizeof(tmp), "[parent=%p", e->parent);
 	if (strlcat(buffer, tmp, sizeof buffer) >= sizeof buffer)
 		return NULL;
 
 	if (e->mapping) {
-		strlcat(buffer, ", mapping=", sizeof buffer);
-		strlcat(buffer, e->mapping->t_name, sizeof buffer);
+		(void)strlcat(buffer, ", mapping=", sizeof buffer);
+		(void)strlcat(buffer, e->mapping->t_name, sizeof buffer);
 	}
 
 	if (e->userbase) {
-		strlcat(buffer, ", userbase=", sizeof buffer);
-		strlcat(buffer, e->userbase->t_name, sizeof buffer);
+		(void)strlcat(buffer, ", userbase=", sizeof buffer);
+		(void)strlcat(buffer, e->userbase->t_name, sizeof buffer);
 	}
 
 	if (strlcat(buffer, "]", sizeof buffer) >= sizeof buffer)

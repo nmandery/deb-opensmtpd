@@ -30,6 +30,7 @@
 #include <event.h>
 #include <fcntl.h>
 #include <imsg.h>
+#include <limits.h>
 #include <inttypes.h>
 #include <libgen.h>
 #include <pwd.h>
@@ -59,16 +60,20 @@ static struct tree		evpcache_tree;
 static struct evplst		evpcache_list;
 static struct queue_backend	*backend;
 
+static int (*handler_close)(void);
 static int (*handler_message_create)(uint32_t *);
 static int (*handler_message_commit)(uint32_t, const char*);
 static int (*handler_message_delete)(uint32_t);
 static int (*handler_message_fd_r)(uint32_t);
 static int (*handler_message_corrupt)(uint32_t);
+static int (*handler_message_uncorrupt)(uint32_t);
 static int (*handler_envelope_create)(uint32_t, const char *, size_t, uint64_t *);
 static int (*handler_envelope_delete)(uint64_t);
 static int (*handler_envelope_update)(uint64_t, const char *, size_t);
 static int (*handler_envelope_load)(uint64_t, char *, size_t);
 static int (*handler_envelope_walk)(uint64_t *, char *, size_t);
+static int (*handler_message_walk)(uint64_t *, char *, size_t,
+    uint32_t, int *, void **);
 
 #ifdef QUEUE_PROFILING
 
@@ -95,9 +100,8 @@ static inline void profile_leave(void)
 
 	clock_gettime(CLOCK_MONOTONIC, &t1);
 	timespecsub(&t1, &profile.t0, &dt);
-	log_debug("profile-queue: %s %lld.%06ld", profile.name,
-	    (long long)dt.tv_sec * 1000000 + dt.tv_nsec / 1000000,
-	    dt.tv_nsec % 1000000);
+	log_debug("profile-queue: %s %lld.%09ld", profile.name,
+	    (long long)dt.tv_sec, dt.tv_nsec);
 }
 #else
 #define profile_enter(x)	do {} while (0)
@@ -118,33 +122,28 @@ queue_init(const char *name, int server)
 
 	pwq = getpwnam(SMTPD_QUEUE_USER);
 	if (pwq == NULL)
-		pwq = getpwnam(SMTPD_USER);
-	if (pwq == NULL)
-		errx(1, "unknown user %s", SMTPD_USER);
+		errx(1, "unknown user %s", SMTPD_QUEUE_USER);
 
 	tree_init(&evpcache_tree);
 	TAILQ_INIT(&evpcache_list);
 
 	if (!strcmp(name, "fs"))
 		backend = &queue_backend_fs;
-	if (!strcmp(name, "null"))
+	else if (!strcmp(name, "null"))
 		backend = &queue_backend_null;
-	if (!strcmp(name, "proc"))
-		backend = &queue_backend_proc;
-	if (!strcmp(name, "ram"))
+	else if (!strcmp(name, "ram"))
 		backend = &queue_backend_ram;
-
-	if (backend == NULL) {
-		log_warn("could not find queue backend \"%s\"", name);
-		return (0);
-	}
+	else
+		backend = &queue_backend_proc;
 
 	if (server) {
 		if (ckdir(PATH_SPOOL, 0711, 0, 0, 1) == 0)
 			errx(1, "error in spool directory setup");
 		if (ckdir(PATH_SPOOL PATH_OFFLINE, 01777, 0, 0, 1) == 0)
 			errx(1, "error in offline directory setup");
-		if (ckdir(PATH_SPOOL PATH_PURGE, 0700, pwq->pw_uid, 0, 1) == 0)
+		if (ckdir_quiet(PATH_SPOOL PATH_PURGE, 0700, pwq->pw_uid, 0))
+			chmod(PATH_SPOOL PATH_PURGE, 0750);
+		if (ckdir(PATH_SPOOL PATH_PURGE, 0750, pwq->pw_uid, 0, 1) == 0)
 			errx(1, "error in purge directory setup");
 
 		mvpurge(PATH_SPOOL PATH_TEMPORARY, PATH_SPOOL PATH_PURGE);
@@ -153,11 +152,20 @@ queue_init(const char *name, int server)
 			errx(1, "error in purge directory setup");
 	}
 
-	r = backend->init(pwq, server);
+	r = backend->init(pwq, server, name);
 
 	log_trace(TRACE_QUEUE, "queue-backend: queue_init(%d) -> %d", server, r);
 
 	return (r);
+}
+
+int
+queue_close(void)
+{
+	if (handler_close)
+		return (handler_close());
+
+	return (1);
 }
 
 int
@@ -179,7 +187,7 @@ queue_message_create(uint32_t *msgid)
 int
 queue_message_delete(uint32_t msgid)
 {
-	char	msgpath[MAXPATHLEN];
+	char	msgpath[PATH_MAX];
 	int	r;
 
 	profile_enter("queue_message_delete");
@@ -200,8 +208,8 @@ int
 queue_message_commit(uint32_t msgid)
 {
 	int	r;
-	char	msgpath[MAXPATHLEN];
-	char	tmppath[MAXPATHLEN];
+	char	msgpath[PATH_MAX];
+	char	tmppath[PATH_MAX];
 	FILE	*ifp = NULL;
 	FILE	*ofp = NULL;
 
@@ -291,9 +299,15 @@ queue_message_corrupt(uint32_t msgid)
 }
 
 int
+queue_message_uncorrupt(uint32_t msgid)
+{
+	return handler_message_uncorrupt(msgid);
+}
+
+int
 queue_message_fd_r(uint32_t msgid)
 {
-	int	fdin = -1, fdout = -1, fd = -1;
+	int	fdin, fdout = -1, fd = -1;
 	FILE	*ifp = NULL;
 	FILE	*ofp = NULL;
 
@@ -324,7 +338,9 @@ queue_message_fd_r(uint32_t msgid)
 			goto err;
 
 		fclose(ifp);
+		ifp = NULL;
 		fclose(ofp);
+		ofp = NULL;
 		lseek(fdin, SEEK_SET, 0);
 	}
 #endif
@@ -345,7 +361,9 @@ queue_message_fd_r(uint32_t msgid)
 			goto err;
 
 		fclose(ifp);
+		ifp = NULL;
 		fclose(ofp);
+		ofp = NULL;
 		lseek(fdin, SEEK_SET, 0);
 	}
 
@@ -368,7 +386,7 @@ err:
 int
 queue_message_fd_rw(uint32_t msgid)
 {
-	char buf[SMTPD_MAXPATHLEN];
+	char buf[PATH_MAX];
 
 	queue_message_path(msgid, buf, sizeof(buf));
 
@@ -620,6 +638,46 @@ queue_envelope_update(struct envelope *ep)
 }
 
 int
+queue_message_walk(struct envelope *ep, uint32_t msgid, int *done, void **data)
+{
+	char		 evpbuf[sizeof(struct envelope)];
+	uint64_t	 evpid;
+	int		 r;
+	const char	*e;
+
+	profile_enter("queue_message_walk");
+	r = handler_message_walk(&evpid, evpbuf, sizeof evpbuf,
+	    msgid, done, data);
+	profile_leave();
+
+	log_trace(TRACE_QUEUE,
+	    "queue-backend: queue_message_walk() -> %d (%016"PRIx64")",
+	    r, evpid);
+
+	if (r == -1)
+		return (r);
+
+	if (r && queue_envelope_load_buffer(ep, evpbuf, (size_t)r)) {
+		if ((e = envelope_validate(ep)) == NULL) {
+			ep->id = evpid;
+			/*
+			 * do not cache the envelope here, while discovering
+			 * envelopes one could re-run discover on already
+			 * scheduled envelopes which leads to triggering of 
+			 * strict checks in caching. Envelopes could anyway
+			 * be loaded from backend if it isn't cached.
+			 */
+			return (1);
+		}
+		log_debug("debug: invalid envelope %016" PRIx64 ": %s",
+		    ep->id, e);
+		(void)queue_message_corrupt(evpid_to_msgid(evpid));
+	}
+
+	return (0);
+}
+
+int
 queue_envelope_walk(struct envelope *ep)
 {
 	const char	*e;
@@ -647,9 +705,9 @@ queue_envelope_walk(struct envelope *ep)
 		}
 		log_debug("debug: invalid envelope %016" PRIx64 ": %s",
 		    ep->id, e);
+		(void)queue_message_corrupt(evpid_to_msgid(evpid));
 	}
 
-	(void)queue_message_corrupt(evpid_to_msgid(evpid));
 	return (0);
 }
 
@@ -658,7 +716,7 @@ queue_generate_msgid(void)
 {
 	uint32_t msgid;
 
-	while ((msgid = arc4random_uniform(0xffffffff)) == 0)
+	while ((msgid = arc4random()) == 0)
 		;
 
 	return msgid;
@@ -670,7 +728,7 @@ queue_generate_evpid(uint32_t msgid)
 	uint32_t rnd;
 	uint64_t evpid;
 
-	while ((rnd = arc4random_uniform(0xffffffff)) == 0)
+	while ((rnd = arc4random()) == 0)
 		;
 
 	evpid = msgid;
@@ -700,6 +758,12 @@ envelope_validate(struct envelope *ep)
 		return "invalid error line";
 
 	return NULL;
+}
+
+void
+queue_api_on_close(int(*cb)(void))
+{
+	handler_close = cb;
 }
 
 void
@@ -733,6 +797,12 @@ queue_api_on_message_corrupt(int(*cb)(uint32_t))
 }
 
 void
+queue_api_on_message_uncorrupt(int(*cb)(uint32_t))
+{
+	handler_message_uncorrupt = cb;
+}
+
+void
 queue_api_on_envelope_create(int(*cb)(uint32_t, const char *, size_t, uint64_t *))
 {
 	handler_envelope_create = cb;
@@ -760,4 +830,11 @@ void
 queue_api_on_envelope_walk(int(*cb)(uint64_t *, char *, size_t))
 {
 	handler_envelope_walk = cb;
+}
+
+void
+queue_api_on_message_walk(int(*cb)(uint64_t *, char *, size_t,
+    uint32_t, int *, void **))
+{
+	handler_message_walk = cb;
 }

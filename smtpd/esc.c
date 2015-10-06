@@ -1,4 +1,4 @@
-/* $OpenBSD$	 */
+/* $OpenBSD: esc.c,v 1.2 2014/04/19 17:32:58 gilles Exp $	 */
 
 /*
  * Copyright (c) 2014 Gilles Chehade <gilles@poolp.org>
@@ -19,6 +19,7 @@
 #include "includes.h"
 
 #include <stdio.h>
+#include <limits.h>
 
 #include "smtpd-defines.h"
 #include "smtpd-api.h"
@@ -67,7 +68,7 @@ static struct escode {
 	{ ESC_DELIVERY_TIME_EXPIRED,			"Delivery time expired" },
 
 	/* 5.x */
-	{ ESC_OTHER_PROTOCOL_STATUS,			"Other/Undefined protocol status" },
+	{ ESC_INVALID_RECIPIENT,			"Invalid Recipient" },
 	{ ESC_INVALID_COMMAND,				"Invalid command" },
 	{ ESC_SYNTAX_ERROR,				"Syntax error" },
 	{ ESC_TOO_MANY_RECIPIENTS,			"Too many recipients" },
@@ -122,7 +123,7 @@ esc_code(enum enhanced_status_class class, enum enhanced_status_code code)
 {
 	static char buffer[6];
 
-	snprintf(buffer, sizeof buffer, "%d.%d.%d", class, code / 10, code % 10);
+	(void)snprintf(buffer, sizeof buffer, "%d.%d.%d", class, code / 10, code % 10);
 	return buffer;
 
 }

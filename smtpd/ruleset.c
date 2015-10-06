@@ -30,6 +30,7 @@
 #include <imsg.h>
 #include <stdio.h>
 #include <string.h>
+#include <limits.h>
 
 #include "smtpd.h"
 #include "log.h"
@@ -86,7 +87,7 @@ ruleset_match(const struct envelope *evp)
 		}
 
 		ret = r->r_destination == NULL ? 1 :
-		    table_lookup(r->r_destination, maddr->domain, K_DOMAIN,
+		    table_lookup(r->r_destination, NULL, maddr->domain, K_DOMAIN,
 			NULL);
 		if (ret == -1) {
 			errno = EAGAIN;
@@ -95,13 +96,6 @@ ruleset_match(const struct envelope *evp)
 		if ((ret == 0 && !r->r_notdestination) || (ret != 0 && r->r_notdestination))
 			continue;
 
-		if (r->r_desttype == DEST_VDOM &&
-		    (r->r_action == A_RELAY || r->r_action == A_RELAYVIA)) {
-			if (! aliases_virtual_check(r->r_mapping,
-				&evp->rcpt)) {
-				return NULL;
-			}
-		}
 		goto matched;
 	}
 
@@ -124,7 +118,7 @@ ruleset_check_source(struct table *table, const struct sockaddr_storage *ss,
 		key = "local";
 	else
 		key = ss_to_text(ss);
-	switch (table_lookup(table, key, K_NETADDR, NULL)) {
+	switch (table_lookup(table, NULL, key, K_NETADDR, NULL)) {
 	case 1:
 		return 1;
 	case -1:
@@ -147,7 +141,7 @@ ruleset_check_mailaddr(struct table *table, const struct mailaddr *maddr)
 	if (key == NULL)
 		return -1;
 
-	switch (table_lookup(table, key, K_MAILADDR, NULL)) {
+	switch (table_lookup(table, NULL, key, K_MAILADDR, NULL)) {
 	case 1:
 		return 1;
 	case -1:

@@ -1,4 +1,4 @@
-/*	$OpenBSD$	*/
+/*	$OpenBSD: queue_fs.c,v 1.5 2014/04/19 13:48:57 gilles Exp $	*/
 
 /*
  * Copyright (c) 2011 Gilles Chehade <gilles@poolp.org>
@@ -19,6 +19,10 @@
 #include "includes.h"
 
 #include <sys/types.h>
+#include <sys/param.h>
+#if HAVE_SYS_MOUNT_H
+#include <sys/mount.h>
+#endif
 #include <sys/queue.h>
 #include <sys/tree.h>
 #include <sys/socket.h>
@@ -26,12 +30,9 @@
 #ifdef HAVE_SYS_STATFS_H
 #include <sys/statfs.h>
 #endif
-#include <sys/param.h>
-#if HAVE_SYS_MOUNT_H
-#include <sys/mount.h>
-#endif
 
 #include <ctype.h>
+#include <dirent.h>
 #include <err.h>
 #include <errno.h>
 #include <event.h>
@@ -40,6 +41,7 @@
 #include <imsg.h>
 #include <inttypes.h>
 #include <libgen.h>
+#include <limits.h>
 #include <pwd.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -56,9 +58,8 @@
 #define PATH_EVPTMP		PATH_INCOMING "/envelope.tmp"
 #define PATH_MESSAGE		"/message"
 
-/* percentage of remaining space / inodes required to accept new messages */
-#define	MINSPACE		5
-#define	MININODES		5
+/* minimum number of free blocks on filesystem */
+#define	MINFREEBLOCKS		100
 
 struct qwalk {
 	FTS	*fts;
@@ -84,7 +85,7 @@ static struct timespec startup;
 static int
 queue_fs_message_create(uint32_t *msgid)
 {
-	char		rootdir[SMTPD_MAXPATHLEN];
+	char		rootdir[PATH_MAX];
 	struct stat	sb;
 
 	if (! fsqueue_check_space())
@@ -125,20 +126,24 @@ again:
 static int
 queue_fs_message_commit(uint32_t msgid, const char *path)
 {
-	char incomingdir[SMTPD_MAXPATHLEN];
-	char queuedir[SMTPD_MAXPATHLEN];
-	char msgdir[SMTPD_MAXPATHLEN];
-	char msgpath[SMTPD_MAXPATHLEN];
+	char incomingdir[PATH_MAX];
+	char queuedir[PATH_MAX];
+	char msgdir[PATH_MAX];
+	char msgpath[PATH_MAX];
 
 	/* before-first, move the message content in the incoming directory */
 	fsqueue_message_incoming_path(msgid, msgpath, sizeof(msgpath));
-	strlcat(msgpath, PATH_MESSAGE, sizeof(msgpath));
+	if (strlcat(msgpath, PATH_MESSAGE, sizeof(msgpath))
+	    >= sizeof(msgpath))
+		return (0);
 	if (rename(path, msgpath) == -1)
 		return (0);
 
 	fsqueue_message_incoming_path(msgid, incomingdir, sizeof(incomingdir));
 	fsqueue_message_path(msgid, msgdir, sizeof(msgdir));
-	strlcpy(queuedir, msgdir, sizeof(queuedir));
+	if (strlcpy(queuedir, msgdir, sizeof(queuedir))
+	    >= sizeof(queuedir))
+		return (0);
 
 	/* first attempt to rename */
 	if (rename(incomingdir, msgdir) == 0)
@@ -169,6 +174,9 @@ queue_fs_message_commit(uint32_t msgid, const char *path)
 		return 0;
 	}
 
+	/* best effort */
+	sync();
+
 	return 1;
 }
 
@@ -176,10 +184,12 @@ static int
 queue_fs_message_fd_r(uint32_t msgid)
 {
 	int fd;
-	char path[SMTPD_MAXPATHLEN];
+	char path[PATH_MAX];
 
 	fsqueue_message_path(msgid, path, sizeof(path));
-	strlcat(path, PATH_MESSAGE, sizeof(path));
+	if (strlcat(path, PATH_MESSAGE, sizeof(path))
+	    >= sizeof(path))
+		return -1;
 
 	if ((fd = open(path, O_RDONLY)) == -1) {
 		log_warn("warn: queue-fs: open");
@@ -192,7 +202,7 @@ queue_fs_message_fd_r(uint32_t msgid)
 static int
 queue_fs_message_delete(uint32_t msgid)
 {
-	char		path[SMTPD_MAXPATHLEN];
+	char		path[PATH_MAX];
 	struct stat	sb;
 
 	fsqueue_message_incoming_path(msgid, path, sizeof(path));
@@ -211,8 +221,8 @@ static int
 queue_fs_message_corrupt(uint32_t msgid)
 {
 	struct stat sb;
-	char rootdir[SMTPD_MAXPATHLEN];
-	char corruptdir[SMTPD_MAXPATHLEN];
+	char rootdir[PATH_MAX];
+	char corruptdir[PATH_MAX];
 	char buf[64];
 	int  retry = 0;
 
@@ -224,8 +234,8 @@ again:
 	if (stat(corruptdir, &sb) != -1 || errno != ENOENT) {
 		fsqueue_message_corrupt_path(msgid, corruptdir,
 		    sizeof(corruptdir));
-		snprintf(buf, sizeof(buf), ".%d", retry++);
-		strlcat(corruptdir, buf, sizeof(corruptdir));
+		(void)snprintf(buf, sizeof (buf), ".%d", retry++);
+		(void)strlcat(corruptdir, buf, sizeof(corruptdir));
 		goto again;
 	}
 
@@ -240,10 +250,54 @@ again:
 }
 
 static int
+queue_fs_message_uncorrupt(uint32_t msgid)
+{
+	struct stat	sb;
+	char		bucketdir[PATH_MAX];
+	char		queuedir[PATH_MAX];
+	char		corruptdir[PATH_MAX];
+
+	fsqueue_message_corrupt_path(msgid, corruptdir, sizeof(corruptdir));
+	if (stat(corruptdir, &sb) == -1) {
+		log_warnx("warn: queue-fs: stat %s failed", corruptdir);
+		return (0);
+	}
+
+	fsqueue_message_path(msgid, queuedir, sizeof(queuedir));
+	if (stat(queuedir, &sb) == 0) {
+		log_warnx("warn: queue-fs: %s already exists", queuedir);
+		return (0);
+	}
+
+	if (! bsnprintf(bucketdir, sizeof bucketdir, "%s/%02x", PATH_QUEUE,
+	    (msgid & 0xff000000) >> 24)) {
+		log_warnx("warn: queue-fs: path too long");
+		return (0);
+	}
+
+	/* create the bucket */
+	if (mkdir(bucketdir, 0700) == -1) {
+		if (errno == ENOSPC)
+			return (0);
+		if (errno != EEXIST) {
+			log_warn("warn: queue-fs: mkdir");
+			return (0);
+		}
+	}
+
+	if (rename(corruptdir, queuedir) == -1) {
+		log_warn("warn: queue-fs: rename");
+		return (0);
+	}
+
+	return (1);
+}
+
+static int
 queue_fs_envelope_create(uint32_t msgid, const char *buf, size_t len,
     uint64_t *evpid)
 {
-	char		path[SMTPD_MAXPATHLEN];
+	char		path[PATH_MAX];
 	int		queued = 0, i, r = 0, *n;
 	struct stat	sb;
 
@@ -264,7 +318,7 @@ queue_fs_envelope_create(uint32_t msgid, const char *buf, size_t len,
 			fsqueue_envelope_incoming_path(*evpid, path,
 			    sizeof(path));
 
-		r = fsqueue_envelope_dump(path, buf, len, 0, 1);
+		r = fsqueue_envelope_dump(path, buf, len, 0, 0);
 		if (r >= 0)
 			goto done;
 	}
@@ -285,7 +339,7 @@ done:
 static int
 queue_fs_envelope_load(uint64_t evpid, char *buf, size_t len)
 {
-	char	 pathname[SMTPD_MAXPATHLEN];
+	char	 pathname[PATH_MAX];
 	FILE	*fp;
 	size_t	 r;
 
@@ -315,7 +369,7 @@ queue_fs_envelope_load(uint64_t evpid, char *buf, size_t len)
 static int
 queue_fs_envelope_update(uint64_t evpid, const char *buf, size_t len)
 {
-	char dest[SMTPD_MAXPATHLEN];
+	char dest[PATH_MAX];
 
 	fsqueue_envelope_path(evpid, dest, sizeof(dest));
 
@@ -325,7 +379,7 @@ queue_fs_envelope_update(uint64_t evpid, const char *buf, size_t len)
 static int
 queue_fs_envelope_delete(uint64_t evpid)
 {
-	char		pathname[SMTPD_MAXPATHLEN];
+	char		pathname[PATH_MAX];
 	uint32_t	msgid;
 	int		*n;
 
@@ -344,6 +398,69 @@ queue_fs_envelope_delete(uint64_t evpid)
 		tree_xset(&evpcount, msgid, n);
 
 	return (1);
+}
+
+static int
+queue_fs_message_walk(uint64_t *evpid, char *buf, size_t len,
+    uint32_t msgid, int *done, void **data)
+{
+	struct dirent	*dp;
+	DIR		*dir = *data;
+	char		 path[PATH_MAX];
+	char		 msgid_str[9];
+	char		*tmp;
+	int		 r, *n;
+
+	if (*done)
+		return (-1);
+
+	if (! bsnprintf(path, sizeof path, "%s/%02x/%08x",
+	    PATH_QUEUE, (msgid  & 0xff000000) >> 24, msgid))
+		fatalx("queue_fs_message_walk: path does not fit buffer");
+
+	if (dir == NULL) {
+		if ((dir = opendir(path)) == NULL) {
+			log_warn("warn: queue_fs: opendir: %s", path);
+			*done = 1;
+			return (-1);
+		}
+
+		*data = dir;
+	}
+
+	(void)snprintf(msgid_str, sizeof msgid_str, "%08" PRIx32, msgid);
+	while ((dp = readdir(dir)) != NULL) {
+		if (dp->d_type != DT_REG)
+			continue;
+
+		/* ignore files other than envelopes */
+		if (strlen(dp->d_name) != 16 || strncmp(dp->d_name, msgid_str, 8))
+			continue;
+
+		tmp = NULL;
+		*evpid = strtoull(dp->d_name, &tmp, 16);
+		if (tmp && *tmp !=  '\0') {
+			log_debug("debug: fsqueue: bogus file %s", dp->d_name);
+			continue;
+		}
+
+		memset(buf, 0, len);
+		r = queue_fs_envelope_load(*evpid, buf, len);
+		if (r) {
+			n = tree_pop(&evpcount, msgid);
+			if (n == NULL)
+				n = REF;
+
+			n += 1;
+			tree_xset(&evpcount, msgid, n);
+		}
+
+		return (r);
+	}
+
+	(void)closedir(dir);
+	*done = 1;
+	return (-1);
 }
 
 static int
@@ -383,8 +500,6 @@ static int
 fsqueue_check_space(void)
 {
 	struct statfs	buf;
-	uint64_t	used;
-	uint64_t	total;
 
 	if (statfs(PATH_QUEUE, &buf) < 0) {
 		log_warn("warn: queue-fs: statfs");
@@ -400,33 +515,8 @@ fsqueue_check_space(void)
 	    (int64_t)buf.f_bfree == -1 || (int64_t)buf.f_ffree == -1)
 		return 1;
 
-	used = buf.f_blocks - buf.f_bfree;
-	total = buf.f_bavail + used;
-	if (total != 0)
-		used = (float)used / (float)total * 100;
-	else
-		used = 100;
-	if (100 - used < MINSPACE) {
-		log_warnx("warn: not enough disk space: %llu%% left",
-		    (unsigned long long) 100 - used);
-		log_warnx("warn: temporarily rejecting messages");
-		return 0;
-	}
-
-	used = buf.f_files - buf.f_ffree;
-#ifdef HAVE_STRUCT_STATFS_F_FAVAIL
-	total = buf.f_favail + used;
-#else
-	total = buf.f_files;
-#endif
-	if (total != 0)
-		used = (float)used / (float)total * 100;
-	else
-		used = 100;
-	if (100 - used < MININODES) {
-		log_warnx("warn: not enough inodes: %llu%% left",
-		    (unsigned long long) 100 - used);
-		log_warnx("warn: temporarily rejecting messages");
+	if (buf.f_bavail < MINFREEBLOCKS) {
+		log_warnx("warn: disk space running low, temporarily rejecting messages");
 		return 0;
 	}
 
@@ -541,12 +631,12 @@ fsqueue_message_incoming_path(uint32_t msgid, char *buf, size_t len)
 static void *
 fsqueue_qwalk_new(void)
 {
-	char		 path[SMTPD_MAXPATHLEN];
+	char		 path[PATH_MAX];
 	char * const	 path_argv[] = { path, NULL };
 	struct qwalk	*q;
 
 	q = xcalloc(1, sizeof(*q), "fsqueue_qwalk_new");
-	strlcpy(path, PATH_QUEUE, sizeof(path));
+	(void)strlcpy(path, PATH_QUEUE, sizeof(path));
 	q->fts = fts_open(path_argv,
 	    FTS_PHYSICAL | FTS_NOCHDIR, NULL);
 
@@ -625,11 +715,11 @@ fsqueue_qwalk(void *hdl, uint64_t *evpid)
 }
 
 static int
-queue_fs_init(struct passwd *pw, int server)
+queue_fs_init(struct passwd *pw, int server, const char *conf)
 {
 	unsigned int	 n;
 	char		*paths[] = { PATH_QUEUE, PATH_CORRUPT, PATH_INCOMING };
-	char		 path[SMTPD_MAXPATHLEN];
+	char		 path[PATH_MAX];
 	int		 ret;
 	struct timeval	 tv;
 
@@ -641,7 +731,7 @@ queue_fs_init(struct passwd *pw, int server)
 
 	ret = 1;
 	for (n = 0; n < nitems(paths); n++) {
-		strlcpy(path, PATH_SPOOL, sizeof(path));
+		(void)strlcpy(path, PATH_SPOOL, sizeof(path));
 		if (strlcat(path, paths[n], sizeof(path)) >= sizeof(path))
 			errx(1, "path too long %s%s", PATH_SPOOL, paths[n]);
 		if (ckdir(path, 0700, pw->pw_uid, 0, server) == 0)
@@ -659,11 +749,13 @@ queue_fs_init(struct passwd *pw, int server)
 	queue_api_on_message_delete(queue_fs_message_delete);
 	queue_api_on_message_fd_r(queue_fs_message_fd_r);
 	queue_api_on_message_corrupt(queue_fs_message_corrupt);
+	queue_api_on_message_uncorrupt(queue_fs_message_uncorrupt);
 	queue_api_on_envelope_create(queue_fs_envelope_create);
 	queue_api_on_envelope_delete(queue_fs_envelope_delete);
 	queue_api_on_envelope_update(queue_fs_envelope_update);
 	queue_api_on_envelope_load(queue_fs_envelope_load);
 	queue_api_on_envelope_walk(queue_fs_envelope_walk);
+	queue_api_on_message_walk(queue_fs_message_walk);
 
 	return (ret);
 }

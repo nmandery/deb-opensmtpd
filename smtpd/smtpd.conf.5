@@ -1,4 +1,4 @@
-.\"	$OpenBSD$
+.\"	$OpenBSD: smtpd.conf.5,v 1.118 2014/05/15 19:36:45 jmc Exp $
 .\"
 .\" Copyright (c) 2008 Janne Johansson <jj@openbsd.org>
 .\" Copyright (c) 2009 Jacek Masiulaniec <jacekm@dobremiasto.net>
@@ -17,7 +17,7 @@
 .\" OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 .\"
 .\"
-.Dd $Mdocdate: February 16 2014 $
+.Dd $Mdocdate: May 15 2014 $
 .Dt SMTPD.CONF 5
 .Os
 .Sh NAME
@@ -109,7 +109,7 @@ and may be omitted.
 .Ic from
 .Op Ic \&!
 .Ic source
-.Ic table
+.Pf < Ar table Ns >
 .Xc
 The rule matches if the connection is made from a client whose address
 is declared in the table
@@ -121,7 +121,7 @@ In addition, finer filtering may be achieved on the sender if desired:
 .It Xo
 .Ic sender
 .Op Ic \&!
-.Ic senders
+.Pf < Ar senders Ns >
 .Xc
 If specified, the rule will only be matched if the sender email address
 is found in the table
@@ -132,12 +132,12 @@ domain if prefixed with @.
 .Pp
 Next comes the selection based on the domain the message is sent to:
 .Bl -tag -width Ds
-.It Ic for any Op Ic alias Aq Ar aliases
+.It Ic for any Op Ic alias No < Ns Ar aliases Ns >
 Make the rule match regardless of the domain it is sent to.
 If specified, the table
 .Ar aliases
 is used for looking up alternative destinations for all addresses.
-.It Ic for any virtual Aq Ar vmap
+.It Ic for any virtual No < Ns Ar vmap Ns >
 Make the rule match regardless of the domain it is sent to.
 The
 .Ar vmap
@@ -147,7 +147,7 @@ table will be used as the virtual domain mapping.
 .Op Ic \&!
 .Ic domain
 .Ar domain
-.Op Ic alias Aq Ar aliases
+.Op Ic alias No < Ns Ar aliases Ns >
 .Xc
 This rule applies to mail destined for the specified
 .Ar domain .
@@ -167,8 +167,8 @@ is used for looking up alternative destinations for addresses in this
 .Ic for
 .Op Ic \&!
 .Ic domain
-.Aq Ar domains
-.Op Ic alias Aq Ar aliases
+.Pf < Ar domains Ns >
+.Op Ic alias No < Ns Ar aliases Ns >
 .Xc
 This rule applies to mail destined to domains which are part of the table
 .Ar domains .
@@ -182,7 +182,7 @@ is used for looking up alternative destinations for addresses in these
 .Op Ic \&!
 .Ic domain
 .Ar domain
-.Ic virtual Aq Ar users
+.Ic virtual No < Ns Ar users Ns >
 .Xc
 This rule applies to mail destined for the specified virtual
 .Ar domain .
@@ -206,8 +206,7 @@ table, see
 .Ic for
 .Op Ic \&!
 .Ic domain
-.Ao Ar domains
-.Ac Ic virtual Aq Ar users
+.Pf < Ar domains Ns > Ic virtual No < Ns Ar users Ns >
 .Xc
 This rule applies to mail destined for the virtual domains specified
 in the table
@@ -224,7 +223,7 @@ table, see
 .Ic for
 .Op Ic \&!
 .Ic local
-.Op Ic alias Aq Ar aliases
+.Op Ic alias No < Ns Ar aliases Ns >
 .Xc
 This rule applies to mail destined to
 .Dq localhost
@@ -238,7 +237,7 @@ below for details of how the server name is determined.
 .Ic for
 .Op Ic \&!
 .Ic local
-.Ic virtual Aq Ar vmap
+.Ic virtual No < Ns Ar vmap Ns >
 .Xc
 This rule applies to mail destined to
 .Dq localhost
@@ -253,7 +252,7 @@ Further filtering may be achieved on specific recipients if desired:
 .It Xo
 .Ic recipient
 .Op Ic \&!
-.Ar recipients
+.Pf < Ar recipients Ns >
 .Xc
 If specified, the rule will only be matched if the recipient email address
 is found in the table
@@ -266,12 +265,24 @@ domain if prefixed with
 If the method of delivery is local, a user database may be
 specified to override the system database:
 .Bl -tag -width Ds
-.It Op Ic userbase Aq Ar table
+.It Op Ic userbase No < Ns Ar table Ns >
 Look up users in the table
 .Ar table
 instead of performing system lookups using the
 .Xr getpwnam 3
 function.
+.El
+.Pp
+You can also accept mail just to have it forwarded elsewhere:
+.Bl -tag -width Ds
+.It forward-only
+Mail is accepted for local recipients ONLY if it is redirected to an
+external address via an alias or a ~/.forward.
+.Pp
+Example:
+.Bd -literal -offset indent
+accept for domain opensmtpd.org forward-only
+.Ed
 .El
 .Pp
 Finally, the method of delivery is specified:
@@ -304,17 +315,18 @@ which is run with the privileges of the user the message is destined to.
 This parameter may use conversion specifiers that are expanded before use
 .Pq see Sx FORMAT SPECIFIERS .
 .It Xo
+.Bk -words
 .Ic relay
 .Op Ic backup Op Ar mx
 .Op Ic as Ar address
-.Op Ic source Ar source
-.Bk -words
+.Op Ic source No < Ns Ar source Ns >
 .Op Ic hostname Ar name
-.Op Ic hostnames Ar names
-.Ek
+.Op Ic hostnames No < Ns Ar names Ns >
 .Op Ic pki Ar pkiname
-.Op Ic tls | verify
+.Op Ic tls Op verify
+.Ek
 .Xc
+.Pp
 Mail is relayed.
 The routing decision is based on the DNS system.
 .Pp
@@ -391,28 +403,24 @@ If
 is specified, OpenSMTPD will refuse to relay unless the remote host provides
 STARTTLS.
 .Pp
-If
+If the
 .Ic verify
-is specified, OpenSMTPD will refuse to relay unless the remote host provides
-STARTTLS and the certificate it presented has been verified.
-.Pp
-Note that the
+parameter to
 .Ic tls
-and
-.Ic verify
-options are mutually exclusive and should only be used in private networks
-as they will prevent proper relaying on the Internet.
+is specified, then OpenSMTPD will refuse to relay unless the certificate
+presented by the remote host has been verified.
 .It Xo
 .Ic relay via
 .Ar host
-.Op Ic auth Aq Ar auth
+.Op Ic auth No < Ns Ar auth Ns >
 .Op Ic as Ar address
-.Op Ic source Ar source
+.Op Ic source No < Ns Ar source Ns >
 .Op Ic hostname Ar name
-.Op Ic hostnames Ar names
+.Op Ic hostnames No < Ns Ar names Ns >
 .Op Ic pki Ar pkiname
 .Op Ic verify
 .Xc
+.Pp
 Mail is relayed through the specified
 .Ar host
 expressed as a URL.
@@ -477,7 +485,7 @@ If the
 parameter is specified,
 .Xr smtpd 8
 will explicitly bind to an address found in the table referenced by
-.Ar table
+.Pf < Ar source Ns >
 when connecting to the relay.
 If the table contains more than one address, they are picked in turn each
 time a new connection is opened.
@@ -546,6 +554,26 @@ will generate a failure report when an envelope is in the queue for more
 than one hour, six hours and two days.
 The default is 4h.
 .It Xo
+.Ic ca Ar hostname Ic certificate Ar cafile
+.Xc
+Associate a custom CA certificate
+.Ar cafile
+with
+.Ar hostname .
+.It Xo
+.Ic ciphers Ar cipher-list
+.Xc
+Specify an alternate ciphers list to use when establishing TLS sessions.
+It is highly recommanded to avoid making use of this option unless there
+is a good understanding of the implications.
+.Pp
+When not specified, only ciphers considered safe are chosen.
+.It Xo
+.Ic curve Ar curve-name
+.Xc
+Specify an alternate curve for ECDHE-based cipher suites.
+If no curve is specified, the default curve prime256v1 will be used.
+.It Xo
 .Ic expire
 .Sm off
 .Ar n
@@ -559,6 +587,18 @@ For example:
 expire 4d	# expire after 4 days
 expire 10h	# expire after 10 hours
 .Ed
+.It Xo
+.Ic limit session
+.Brq Cm max-rcpt | max-mails
+.Ar num
+.Xc
+Instruct
+.Xr smtpd 8
+to accept a maximum number of recipients or emails at once in the
+receiving queue. Defaults are 100 for
+.Ic max-mails
+and 1000 for
+.Ic max-rcpt .
 .It Xo
 .Ic limit mta
 .Op Ic for Ic domain Ar domain
@@ -592,13 +632,18 @@ Changing the default value might degrade performances.
 .Op Ic port Ar port
 .Op Ic tls | tls-require | tls-require verify | smtps | secure
 .Op Ic pki Ar pkiname
-.Op Ic auth | auth-optional | auth Ar authtable | Ic auth-optional Ar authtable
+.Op Ic auth | auth-optional Op < Ns Ar authtable Ns >
 .Op Ic tag Ar tag
 .Op Ic hostname Ar hostname
-.Op Ic hostnames Ar names
+.Op Ic hostnames No < Ns Ar names Ns >
+.Op Ic senders No < Ns Ar users Ns > Op masquerade
 .Op Ic mask-source
+.Op Ic no-dsn
+.Op Ic dsn-notify Ar disable
+.Op Ic dsn-ret Ar headers
 .Ek
 .Xc
+.Pp
 Specify an
 .Ar interface
 and
@@ -648,7 +693,9 @@ then a client may only start an SMTP transaction after a
 successful authentication.
 Any remote sender that passed SMTPAUTH is treated as if
 it was the server's local user that was sending the mail.
-This means that filter rules using "from local" will be matched.
+This means that filter rules using
+.Ic from local
+will be matched.
 If
 .Ic auth-optional
 is specified, then SMTPAUTH is not required to establish an
@@ -662,7 +709,7 @@ Both
 .Ic auth
 and
 .Ic auth-optional
-accept a table as parameter.
+accept an optional table as a parameter.
 When provided, credentials are looked up in this table.
 Credentials format is described in
 .Xr table 5 .
@@ -688,10 +735,47 @@ contains a mapping of IP addresses to hostnames and
 will use the hostname that matches the address on which the connection arrives
 if it is found in the mapping.
 .Pp
+The
+.Ic hostnames
+parameter overrides the server name for specific addresses.
+Table
+.Ar names
+contains a mapping of IP addresses to hostnames and
+.Xr smtpd 8
+will use the hostname that matches the address on which the connection arrives
+if it is found in the mapping.
+.Pp
+If the
+.Ic senders
+parameter is used, then
+.Xr smtpd 8
+will lookup in a mapping of username to email addresses if the authenticated
+user is allowed to submit mail as the sender that was provided in the SMTP session.
+In addition, if the masquerade option is provided, the From header will be rewritten
+to match the sender provided in the SMTP session.
+.Pp
 If the
 .Ic mask-source
-parameter is used, then the listener will skip the "from" part
-when prepending the "Received" header.
+parameter is used, then the listener will skip the
+.Ic from
+part when prepending the
+.Dq Received
+header.
+.Pp
+If the
+.Ic no-dsn
+parameter is used, DSN (Delivery Status Notification) extension will not
+be enabled.
+If the
+.Ic dsn-notify
+parameter is used with the
+.Ar disable
+argument, the listener will not generate DSN upon delivery failures.
+If the
+.Ic dsn-ret
+parameter is used with the
+.Ar headers
+argument, DSN will be generated without the content of the original message.
 .It Ic max-message-size Ar n
 Specify a maximum message size of
 .Ar n
@@ -715,11 +799,6 @@ Creation of certificates is documented in
 .It Ic pki Ar hostname Ic key Ar keyfile
 Associate the key located in
 .Ar keyfile
-with
-.Ar hostname .
-.It Ic pki Ar hostname Ic ca Ar cafile
-Associate a custom CA certificate
-.Ar cafile
 with
 .Ar hostname .
 .It Ic pki Ar hostname Ic dhparams Ar dhfile
@@ -759,7 +838,9 @@ parameter is not specified, it is read with
 at startup.
 If
 .Ar key
-is "stdin", then it is read from the standard input at startup.
+is
+.Ic stdin ,
+then it is read from the standard input at startup.
 .Pp
 The only supported algorithm is AES-256 in GCM mode.
 Envelopes and messages may be inspected using the
@@ -830,54 +911,60 @@ descriptions.
 .Ss FORMAT SPECIFIERS
 Some configuration directives support expansion of their parameters at runtime.
 Such directives (for example
-.Ar deliver to maildir ,
-.Ar deliver to mda )
+.Ic deliver to maildir ,
+.Ic deliver to mda )
 may use format specifiers which will be expanded before delivery or
 relaying.
 The following formats are currently supported:
-.Bd -literal -offset indent
-%{sender}	     sender email address
-%{sender.user}	     user part of the sender email address
-%{sender.domain}     domain part of the sender email address
-%{rcpt}              recipient email address
-%{rcpt.user}	     user part of the recipient email address
-%{rcpt.domain}	     domain part of the recipient email address
-%{dest}              recipient email address after expansion
-%{dest.user}	     user part after expansion
-%{dest.domain}	     domain part after expansion
-%{user.username}     local user
-%{user.directory}    home directory of the local user
-.Ed
+.Bl -column %{user.directory} -offset indent
+.It %{sender}         Ta sender email address
+.It %{sender.user}    Ta user part of the sender email address
+.It %{sender.domain}  Ta domain part of the sender email address
+.It %{rcpt}           Ta recipient email address
+.It %{rcpt.user}      Ta user part of the recipient email address
+.It %{rcpt.domain}    Ta domain part of the recipient email address
+.It %{dest}           Ta recipient email address after expansion
+.It %{dest.user}      Ta user part after expansion
+.It %{dest.domain}    Ta domain part after expansion
+.It %{user.username}  Ta local user
+.It %{user.directory} Ta home directory of the local user
+.El
 .Pp
 Expansion formats also support partial expansion using the optional
 bracket notations with substring offset.
-For example, with recipient domain "example.org":
-.Bd -literal -offset indent
-%{rcpt.domain[0]}	expands to "e"
-%{rcpt.domain[1]}	expands to "x"
-%{rcpt.domain[8:]}	expands to "org"
-%{rcpt.domain[-3:]}	expands to "org"
-%{rcpt.domain[0:6]}	expands to "example"
-%{rcpt.domain[0:-4]}	expands to "example"
-.Ed
+For example, with recipient domain
+.Dq example.org :
+.Bl -column %{rcpt.domain[0:-4]} -offset indent
+.It %{rcpt.domain[0]}    Ta expands to Dq e
+.It %{rcpt.domain[1]}    Ta expands to Dq x
+.It %{rcpt.domain[8:]}   Ta expands to Dq org
+.It %{rcpt.domain[-3:]}  Ta expands to Dq org
+.It %{rcpt.domain[0:6]}  Ta expands to Dq example
+.It %{rcpt.domain[0:-4]} Ta expands to Dq example
+.El
 .Pp
 In addition, modifiers may be applied to the token.
-For example, with recipient "User+Tag@Example.org":
-.Bd -literal -offset indent
-%{rcpt:lowercase}	expands to "user+tag@example.org"
-%{rcpt:uppercase}	expands to "USER+TAG@EXAMPLE.ORG"
-%{rcpt:strip}		expands to "User@Example.org"
-%{rcpt:lowercase|strip}	expands to "user@example.org"
-.Ed
+For example, with recipient
+.Dq User+Tag@Example.org :
+.Bl -column %{rcpt:lowercase|strip} -offset indent
+.It %{rcpt:lowercase}       Ta expands to Dq user+tag@example.org
+.It %{rcpt:uppercase}       Ta expands to Dq USER+TAG@EXAMPLE.ORG
+.It %{rcpt:strip}           Ta expands to Dq User@Example.org
+.It %{rcpt:lowercase|strip} Ta expands to Dq user@example.org
+.El
 .Pp
 For security concerns, expanded values are sanitized and potentially
-dangerous characters are replaced with ":".
-In situations where they are desirable, the "raw" modifier may be applied.
-For example, with recipient "user+t?g@example.org":
-.Bd -literal -offset indent
-%{rcpt}		expands to "user+t:g@example.org"
-%{rcpt:raw}	expands to "user+t?g@example.org"
-.Ed
+dangerous characters are replaced with
+.Sq \&: .
+In situations where they are desirable, the
+.Dq raw
+modifier may be applied.
+For example, with recipient
+.Dq user+t?g@example.org :
+.Bl -column %{rcpt:raw} -offset indent
+.It %{rcpt}     Ta expands to Dq user+t:g@example.org
+.It %{rcpt:raw} Ta expands to Dq user+t?g@example.org
+.El
 .Sh FILES
 .Bl -tag -width "/etc/mail/smtpd.confXXX"
 .It Pa /etc/mail/smtpd.conf
@@ -890,7 +977,7 @@ the first line is used as the server name.
 Otherwise, the server name is derived from the local hostname returned by
 .Xr gethostname 3 ,
 either directly if it is a fully qualified domain name,
-or by retreiving the associated canonical name through
+or by retrieving the associated canonical name through
 .Xr getaddrinfo 3 .
 .It Pa /var/spool/smtpd/
 Spool directories for mail during processing.
@@ -953,9 +1040,48 @@ listen on egress tls pki mail.example.com auth
 table aliases db:/etc/mail/aliases.db
 
 accept for local alias <aliases> deliver to mda "/path/to/mda \-f \-"
-accept from any for domain example.org \e
+accept from any for domain example.com \e
 	deliver to mda "/path/to/mda \-f \-"
 accept for any relay
+.Ed
+.Pp
+For sites that wish to sign messages using DKIM, the
+.Em dkimproxy
+package may be used as a filter.
+The following example is the same as the default configuration,
+but all outgoing mail is passed to dkimproxy_out on port 10027
+for signing.
+The signed messages are received on port 10028 and tagged for relaying.
+.Bd -literal -offset indent
+listen on lo0
+listen on lo0 port 10028 tag DKIM
+
+table aliases db:/etc/mail/aliases.db
+
+accept for local alias <aliases> deliver to mbox
+accept tagged DKIM for any relay
+accept from local for any relay via smtp://127.0.0.1:10027
+.Ed
+.Pp
+Sites that accept non-local messages may be able to cut down on the
+volume of spam received by rejecting forged messages that claim
+to be from the local domain.
+The table
+.Em other-relays
+can be used to specify the IP addresses of relays that may legitimately
+originate mail with your domain as the sender.
+.Bd -literal -offset indent
+listen on lo0
+listen on egress
+
+table aliases	db:/etc/mail/aliases.db
+table other-relays "/etc/mail/other-relays"
+
+accept for local alias <aliases> deliver to mbox
+accept for local for any relay
+reject from ! source <other-relays> sender "@example.com" for any
+accept from any for domain example.com \e
+	alias <aliases> deliver to mbox
 .Ed
 .Sh SEE ALSO
 .Xr mailer.conf 5 ,

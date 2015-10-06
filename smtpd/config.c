@@ -1,4 +1,4 @@
-/*	$OpenBSD$	*/
+/*	$OpenBSD: config.c,v 1.28 2014/04/19 17:29:56 gilles Exp $	*/
 
 /*
  * Copyright (c) 2008 Pierre-Yves Ritschard <pyr@openbsd.org>
@@ -28,6 +28,7 @@
 #include <imsg.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <limits.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -36,6 +37,8 @@
 #include "smtpd.h"
 #include "log.h"
 #include "ssl.h"
+
+extern int profiling;
 
 static int pipes[PROC_COUNT][PROC_COUNT];
 
@@ -46,6 +49,8 @@ purge_config(uint8_t what)
 	struct table	*t;
 	struct rule	*r;
 	struct pki	*p;
+	const char	*k;
+	void		*iter_dict;
 
 	if (what & PURGE_LISTENERS) {
 		while ((l = TAILQ_FIRST(env->sc_listeners)) != NULL) {
@@ -71,14 +76,34 @@ purge_config(uint8_t what)
 	}
 	if (what & PURGE_PKI) {
 		while (dict_poproot(env->sc_pki_dict, (void **)&p)) {
-			memset(p->pki_cert, 0, p->pki_cert_len);
-			memset(p->pki_key, 0, p->pki_key_len);
+			explicit_bzero(p->pki_cert, p->pki_cert_len);
 			free(p->pki_cert);
-			free(p->pki_key);
+			if (p->pki_key) {
+				explicit_bzero(p->pki_key, p->pki_key_len);
+				free(p->pki_key);
+			}
+			if (p->pki_pkey)
+				EVP_PKEY_free(p->pki_pkey);
 			free(p);
 		}
 		free(env->sc_pki_dict);
 		env->sc_pki_dict = NULL;
+	} else if (what & PURGE_PKI_KEYS) {
+		iter_dict = NULL;
+		while (dict_iter(env->sc_pki_dict, &iter_dict, &k,
+		    (void **)&p)) {
+			explicit_bzero(p->pki_cert, p->pki_cert_len);
+			free(p->pki_cert);
+			p->pki_cert = NULL;
+			if (p->pki_key) {
+				explicit_bzero(p->pki_key, p->pki_key_len);
+				free(p->pki_key);
+				p->pki_key = NULL;
+			}
+			if (p->pki_pkey)
+				EVP_PKEY_free(p->pki_pkey);
+			p->pki_pkey = NULL;
+		}
 	}
 }
 
@@ -89,8 +114,8 @@ init_pipes(void)
 
 	for (i = 0; i < PROC_COUNT; i++)
 		for (j = i + 1; j < PROC_COUNT; j++) {
-			if (socketpair(AF_UNIX, SOCK_STREAM, PF_UNSPEC,
-			    sockpair) == -1)
+			if (socketpair(AF_UNIX, SOCK_STREAM,
+			    PF_UNSPEC, sockpair) == -1)
 				fatal("socketpair");
 			pipes[i][j] = sockpair[0];
 			pipes[j][i] = sockpair[1];
@@ -135,20 +160,16 @@ config_peer(enum smtp_proc_type proc)
 		p_control = p;
 	else if (proc == PROC_LKA)
 		p_lka = p;
-	else if (proc == PROC_MDA)
-		p_mda = p;
-	else if (proc == PROC_MFA)
-		p_mfa = p;
-	else if (proc == PROC_MTA)
-		p_mta = p;
 	else if (proc == PROC_PARENT)
 		p_parent = p;
 	else if (proc == PROC_QUEUE)
 		p_queue = p;
 	else if (proc == PROC_SCHEDULER)
 		p_scheduler = p;
-	else if (proc == PROC_SMTP)
-		p_smtp = p;
+	else if (proc == PROC_PONY)
+		p_pony = p;
+	else if (proc == PROC_CA)
+		p_ca = p;
 	else
 		fatalx("bad peer");
 }
@@ -174,6 +195,9 @@ config_done(void)
 	if (smtpd_process == PROC_CONTROL)
 		return;
 
+	if (!(profiling & PROFILE_BUFFERS))
+		return;
+
 	evtimer_set(&ev, process_stat_event, &ev);
 	tv.tv_sec = 0;
 	tv.tv_usec = 0;
@@ -190,7 +214,7 @@ process_stat(struct mproc *p)
 		return;
 
 	value.type = STAT_COUNTER;
-	snprintf(buf, sizeof buf, "buffer.%s.%s",
+	(void)snprintf(buf, sizeof buf, "buffer.%s.%s",
 	    proc_name(smtpd_process),
 	    proc_name(p->proc));
 	value.u.counter = p->bytes_queued_max;
@@ -206,13 +230,11 @@ process_stat_event(int fd, short ev, void *arg)
 
 	process_stat(p_control);
 	process_stat(p_lka);
-	process_stat(p_mda);
-	process_stat(p_mfa);
-	process_stat(p_mda);
 	process_stat(p_parent);
 	process_stat(p_queue);
 	process_stat(p_scheduler);
-	process_stat(p_smtp);
+	process_stat(p_pony);
+	process_stat(p_ca);
 
 	tv.tv_sec = 1;
 	tv.tv_usec = 0;

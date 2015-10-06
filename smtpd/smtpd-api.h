@@ -20,13 +20,6 @@
 #ifndef	_SMTPD_API_H_
 #define	_SMTPD_API_H_
 
-#include <sys/queue.h>
-#include <sys/tree.h>
-#include <sys/socket.h>
-
-#include <netinet/in.h>
-#include <netdb.h>
-
 #define	FILTER_API_VERSION	 50
 
 struct mailaddr {
@@ -57,27 +50,43 @@ enum filter_imsg {
 	IMSG_FILTER_REGISTER,
 	IMSG_FILTER_EVENT,
 	IMSG_FILTER_QUERY,
-	IMSG_FILTER_PIPE_SETUP,
-	IMSG_FILTER_PIPE_ABORT,
-	IMSG_FILTER_NOTIFY,
+	IMSG_FILTER_PIPE,
 	IMSG_FILTER_RESPONSE
 };
 
+/* XXX - server side requires mfa_session.c update on filter_event */
+enum filter_event_type {
+	EVENT_CONNECT,
+	EVENT_RESET,
+	EVENT_DISCONNECT,
+	EVENT_COMMIT,
+	EVENT_ROLLBACK,
+};
+
 /* XXX - server side requires mfa_session.c update on filter_hook changes */
-enum filter_hook {
-	HOOK_CONNECT		= 1 << 0,	/* req */
-	HOOK_HELO		= 1 << 1,	/* req */
-	HOOK_MAIL		= 1 << 2,	/* req */
-	HOOK_RCPT		= 1 << 3,	/* req */
-	HOOK_DATA		= 1 << 4,	/* req */
-	HOOK_EOM		= 1 << 5,	/* req */
+enum filter_query_type {
+	QUERY_CONNECT,
+	QUERY_HELO,
+	QUERY_MAIL,
+	QUERY_RCPT,
+	QUERY_DATA,
+	QUERY_EOM,
+	QUERY_DATALINE,
+};
 
-	HOOK_RESET		= 1 << 6,	/* evt */
-	HOOK_DISCONNECT		= 1 << 7,	/* evt */
-	HOOK_COMMIT		= 1 << 8,	/* evt */
-	HOOK_ROLLBACK		= 1 << 9,	/* evt */
-
-	HOOK_DATALINE		= 1 << 10,	/* data */
+/* XXX - server side requires mfa_session.c update on filter_hook changes */
+enum filter_hook_type {
+	HOOK_CONNECT		= 1 << 0,
+	HOOK_HELO		= 1 << 1,
+	HOOK_MAIL		= 1 << 2,
+	HOOK_RCPT		= 1 << 3,
+	HOOK_DATA		= 1 << 4,
+	HOOK_EOM		= 1 << 5,
+	HOOK_RESET		= 1 << 6,
+	HOOK_DISCONNECT		= 1 << 7,
+	HOOK_COMMIT		= 1 << 8,
+	HOOK_ROLLBACK		= 1 << 9,
+	HOOK_DATALINE		= 1 << 10,
 };
 
 struct filter_connect {
@@ -92,6 +101,7 @@ enum {
 	PROC_QUEUE_OK,
 	PROC_QUEUE_FAIL,
 	PROC_QUEUE_INIT,
+	PROC_QUEUE_CLOSE,
 	PROC_QUEUE_MESSAGE_CREATE,
 	PROC_QUEUE_MESSAGE_DELETE,
 	PROC_QUEUE_MESSAGE_COMMIT,
@@ -107,7 +117,6 @@ enum {
 #define PROC_SCHEDULER_API_VERSION	1
 
 struct scheduler_info;
-struct scheduler_batch;
 
 enum {
 	PROC_SCHEDULER_OK,
@@ -166,42 +175,33 @@ struct scheduler_info {
 	time_t			nexttry;
 };
 
-#define SCHED_NONE		0x00
-#define SCHED_DELAY		0x01
-#define SCHED_REMOVE		0x02
-#define SCHED_EXPIRE		0x04
-#define SCHED_UPDATE		0x08
-#define SCHED_BOUNCE		0x10
-#define SCHED_MDA		0x20
-#define SCHED_MTA		0x40
-
-struct scheduler_batch {
-	int		 mask;
-	int		 type;
-	time_t		 delay;
-	size_t		 evpcount;
-	uint64_t	*evpids;
-};
+#define SCHED_REMOVE		0x01
+#define SCHED_EXPIRE		0x02
+#define SCHED_UPDATE		0x04
+#define SCHED_BOUNCE		0x08
+#define SCHED_MDA		0x10
+#define SCHED_MTA		0x20
 
 #define PROC_TABLE_API_VERSION	1
 
 struct table_open_params {
 	uint32_t	version;
-	char		name[SMTPD_MAXLINESIZE];
+	char		name[LINE_MAX];
 };
 
 enum table_service {
-	K_NONE		= 0x00,
-	K_ALIAS		= 0x01,	/* returns struct expand	*/
-	K_DOMAIN	= 0x02,	/* returns struct destination	*/
-	K_CREDENTIALS	= 0x04,	/* returns struct credentials	*/
-	K_NETADDR	= 0x08,	/* returns struct netaddr	*/
-	K_USERINFO	= 0x10,	/* returns struct userinfo	*/
-	K_SOURCE	= 0x20, /* returns struct source	*/
-	K_MAILADDR	= 0x40, /* returns struct mailaddr	*/
-	K_ADDRNAME	= 0x80, /* returns struct addrname	*/
+	K_NONE		= 0x000,
+	K_ALIAS		= 0x001,	/* returns struct expand	*/
+	K_DOMAIN	= 0x002,	/* returns struct destination	*/
+	K_CREDENTIALS	= 0x004,	/* returns struct credentials	*/
+	K_NETADDR	= 0x008,	/* returns struct netaddr	*/
+	K_USERINFO	= 0x010,	/* returns struct userinfo	*/
+	K_SOURCE	= 0x020,	/* returns struct source	*/
+	K_MAILADDR	= 0x040,	/* returns struct mailaddr	*/
+	K_ADDRNAME	= 0x080,	/* returns struct addrname	*/
+	K_MAILADDRMAP	= 0x100,	/* returns struct mailaddr	*/
 };
-#define K_ANY		  0xff
+#define K_ANY		  0xfff
 
 enum {
 	PROC_TABLE_OK,
@@ -255,7 +255,7 @@ enum enhanced_status_code {
 	ESC_DELIVERY_TIME_EXPIRED   	      	    	= 47,
 
 	/* 5.x */
-	ESC_OTHER_PROTOCOL_STATUS   	      	    	= 50,
+	ESC_INVALID_RECIPIENT				= 50,
 	ESC_INVALID_COMMAND	   	      	    	= 51,
 	ESC_SYNTAX_ERROR	   	      	    	= 52,
 	ESC_TOO_MANY_RECIPIENTS	   	      	    	= 53,
@@ -326,36 +326,48 @@ const char *esc_description(enum enhanced_status_code);
 void filter_api_setugid(uid_t, gid_t);
 void filter_api_set_chroot(const char *);
 void filter_api_no_chroot(void);
+void filter_api_set_udata(uint64_t, void *);
+void *filter_api_get_udata(uint64_t);
 
 void filter_api_loop(void);
-void filter_api_accept(uint64_t);
-void filter_api_accept_notify(uint64_t, uint64_t *);
-void filter_api_reject(uint64_t, enum filter_status);
-void filter_api_reject_code(uint64_t, enum filter_status, uint32_t,
+int filter_api_accept(uint64_t);
+int filter_api_reject(uint64_t, enum filter_status);
+int filter_api_reject_code(uint64_t, enum filter_status, uint32_t,
     const char *);
 void filter_api_writeln(uint64_t, const char *);
+const char *filter_api_sockaddr_to_text(const struct sockaddr *);
+const char *filter_api_mailaddr_to_text(const struct mailaddr *);
 
-void filter_api_on_notify(void(*)(uint64_t, enum filter_status));
-void filter_api_on_connect(void(*)(uint64_t, struct filter_connect *));
-void filter_api_on_helo(void(*)(uint64_t, const char *));
-void filter_api_on_mail(void(*)(uint64_t, struct mailaddr *));
-void filter_api_on_rcpt(void(*)(uint64_t, struct mailaddr *));
-void filter_api_on_data(void(*)(uint64_t));
+void filter_api_on_connect(int(*)(uint64_t, struct filter_connect *));
+void filter_api_on_helo(int(*)(uint64_t, const char *));
+void filter_api_on_mail(int(*)(uint64_t, struct mailaddr *));
+void filter_api_on_rcpt(int(*)(uint64_t, struct mailaddr *));
+void filter_api_on_data(int(*)(uint64_t));
 void filter_api_on_dataline(void(*)(uint64_t, const char *));
-void filter_api_on_eom(void(*)(uint64_t));
-void filter_api_on_event(void(*)(uint64_t, enum filter_hook));
+void filter_api_on_eom(int(*)(uint64_t, size_t));
+void filter_api_on_reset(void(*)(uint64_t));
+void filter_api_on_disconnect(void(*)(uint64_t));
+void filter_api_on_commit(void(*)(uint64_t));
+void filter_api_on_rollback(void(*)(uint64_t));
 
 /* queue */
+void queue_api_on_close(int(*)(void));
 void queue_api_on_message_create(int(*)(uint32_t *));
 void queue_api_on_message_commit(int(*)(uint32_t, const char*));
 void queue_api_on_message_delete(int(*)(uint32_t));
 void queue_api_on_message_fd_r(int(*)(uint32_t));
 void queue_api_on_message_corrupt(int(*)(uint32_t));
+void queue_api_on_message_uncorrupt(int(*)(uint32_t));
 void queue_api_on_envelope_create(int(*)(uint32_t, const char *, size_t, uint64_t *));
 void queue_api_on_envelope_delete(int(*)(uint64_t));
 void queue_api_on_envelope_update(int(*)(uint64_t, const char *, size_t));
 void queue_api_on_envelope_load(int(*)(uint64_t, char *, size_t));
 void queue_api_on_envelope_walk(int(*)(uint64_t *, char *, size_t));
+void queue_api_on_message_walk(int(*)(uint64_t *, char *, size_t,
+    uint32_t, int *, void **));
+void queue_api_no_chroot(void);
+void queue_api_set_chroot(const char *);
+void queue_api_set_user(const char *);
 int queue_api_dispatch(void);
 
 /* scheduler */
@@ -367,20 +379,23 @@ void scheduler_api_on_update(int(*)(struct scheduler_info *));
 void scheduler_api_on_delete(int(*)(uint64_t));
 void scheduler_api_on_hold(int(*)(uint64_t, uint64_t));
 void scheduler_api_on_release(int(*)(int, uint64_t, int));
-void scheduler_api_on_batch(int(*)(int, struct scheduler_batch *));
+void scheduler_api_on_batch(int(*)(int, int *, size_t *, uint64_t *, int *));
 void scheduler_api_on_messages(size_t(*)(uint32_t, uint32_t *, size_t));
 void scheduler_api_on_envelopes(size_t(*)(uint64_t, struct evpstate *, size_t));
 void scheduler_api_on_schedule(int(*)(uint64_t));
 void scheduler_api_on_remove(int(*)(uint64_t));
 void scheduler_api_on_suspend(int(*)(uint64_t));
 void scheduler_api_on_resume(int(*)(uint64_t));
+void scheduler_api_no_chroot(void);
+void scheduler_api_set_chroot(const char *);
+void scheduler_api_set_user(const char *);
 int scheduler_api_dispatch(void);
 
 /* table */
 void table_api_on_update(int(*)(void));
-void table_api_on_check(int(*)(int, const char *));
-void table_api_on_lookup(int(*)(int, const char *, char *, size_t));
-void table_api_on_fetch(int(*)(int, char *, size_t));
+void table_api_on_check(int(*)(int, struct dict *, const char *));
+void table_api_on_lookup(int(*)(int, struct dict *, const char *, char *, size_t));
+void table_api_on_fetch(int(*)(int, struct dict *, char *, size_t));
 int table_api_dispatch(void);
 const char *table_api_get_name(void);
 
